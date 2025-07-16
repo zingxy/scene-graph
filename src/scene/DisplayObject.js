@@ -45,6 +45,6 @@ export class Rect extends Shape {
   render(ctx) {
     ctx.beginPath();
     ctx.rect(0, 0, this.width, this.height);
-    ctx.fill();
+    ctx.stroke();
   }
 }
