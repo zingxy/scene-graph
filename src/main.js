@@ -12,13 +12,14 @@ const circle = new Circle(100);
 circle.transformMatrix = new DOMMatrix().translate(500, 200);
 world.stage.addChild(circle);
 
-const containerB = world.stage.addChild(new Container());
-containerB.transformMatrix = new DOMMatrix().translate(100, 100).rotate(45);
+// const containerB = world.stage.addChild(new Container());
+// containerB.transformMatrix = new DOMMatrix().translate(100, 100).rotate(45);
 
-const containerA = world.stage.addChild(new Container());
-containerA.transformMatrix = new DOMMatrix().translate(200, 100).rotate(-45);
+// const containerA = world.stage.addChild(new Container());
+// containerA.transformMatrix = new DOMMatrix().translate(200, 100).rotate(-45);
 
 canvas.addEventListener('click', (e) => {
+  return;
   const stageWorldMatrix = world.stage.transformMatrix;
   const containerBWorldMatrix = stageWorldMatrix.multiply(
     containerB.transformMatrix
@@ -36,8 +37,8 @@ canvas.addEventListener('click', (e) => {
 
   console.log('Stage Point:', 500, 200);
   console.log('World Point:', worldPoint);
-  console.log('Local Point in Container:', localPointB);
-  console.log('Local P  oint in Container A:', localPointA);
+  console.log('Local Point in Container B:', localPointB);
+  console.log('Local Point in Container A:', localPointA);
   const circleInContainer = containerB.addChild(new Circle(30, 'red'));
   circleInContainer.transformMatrix = new DOMMatrix().translate(
     localPointB.x,
@@ -50,16 +51,38 @@ canvas.addEventListener('click', (e) => {
   );
 });
 
-const viewportRect  = minimap.stage.addChild(new Rect(canvas.width, canvas.height));
+canvas.addEventListener('click', (e) => {
+  // 这是viewport坐标系下的点击位置
+  const { offsetX, offsetY } = e;
+
+  // 将点击位置转换为世界坐标系下的点
+  const worldPoint = world.camera.transformMatrix
+    .inverse()
+    .transformPoint(new DOMPoint(offsetX, offsetY));
+
+  const stagePoint = world.stage.transformMatrix
+    .inverse()
+    .transformPoint(worldPoint);
+
+  const dot = world.stage.addChild(new Circle(10, 'green'));
+  dot.transformMatrix = new DOMMatrix().translate(
+    stagePoint.x,
+    stagePoint.y
+  );
+  
+});
+
+const viewportRect = minimap.stage.addChild(
+  new Rect(canvas.width, canvas.height)
+);
 minimap.stage.addChild(world.stage);
 
 window.world = world;
 
-
 const loop = () => {
   world.render();
   minimap.render();
-  viewportRect.transformMatrix = world.camera.transformMatrix.inverse()
+  viewportRect.transformMatrix = world.camera.transformMatrix.inverse();
   requestAnimationFrame(loop);
 };
 

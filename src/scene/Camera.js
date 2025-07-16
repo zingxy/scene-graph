@@ -1,10 +1,16 @@
 import { DisplayObject } from './DisplayObject.js';
+
+/**
+ * Camera也是World的下的一个Local坐标系
+ * 抽象出Camera的目的主要是快速完成Viewport到World的转换
+ */
 export class Camera extends DisplayObject {
   constructor(world) {
     super();
     this.world = world;
     this.ctx = world.ctx;
     const dpr = window.devicePixelRatio || 1;
+    // 这是viewport matrix, 也就是camera matrix的逆矩阵
     this.transformMatrix = new DOMMatrix().scale(dpr, dpr);
 
     this.bindEvents();
