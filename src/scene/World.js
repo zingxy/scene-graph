@@ -30,7 +30,7 @@ export class SceneGraph {
     if (root instanceof Shape) {
       this.ctx.save();
       this.ctx.transform(a, b, c, d, e, f);
-      root.render(this.ctx);
+    root.render(this.ctx, { mousePosition: this.camera.latestMousePosition });
       drawCoordinateSystem(this.ctx);
       this.ctx.restore();
       return;

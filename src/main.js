@@ -64,13 +64,25 @@ canvas.addEventListener('click', (e) => {
     .inverse()
     .transformPoint(worldPoint);
 
-  const dot = world.stage.addChild(new Circle(10, 'green'));
+  const dot = world.stage.addChild(new Circle(30, 'green'));
   dot.transformMatrix = new DOMMatrix().translate(
     stagePoint.x,
     stagePoint.y
   );
   
 });
+
+
+
+Array.from({ length: 200 }).forEach((_, i) => {
+  const circle = new Circle(20, 'blue');
+  world.stage.addChild(circle);
+  circle.transformMatrix = new DOMMatrix().translate(
+    Math.random() * 800,
+    Math.random() * 600
+  );
+});
+
 
 const viewportRect = minimap.stage.addChild(
   new Rect(canvas.width, canvas.height)
@@ -81,7 +93,7 @@ window.world = world;
 
 const loop = () => {
   world.render();
-  minimap.render();
+  // minimap.render();
   viewportRect.transformMatrix = world.camera.transformMatrix.inverse();
   requestAnimationFrame(loop);
 };

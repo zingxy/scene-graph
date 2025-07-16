@@ -27,12 +27,18 @@ export class Circle extends Shape {
     super();
     this.radius = radius;
     this.fill = fill;
+    this.path = new Path2D();
+    this.path.arc(0, 0, radius, 0, Math.PI * 2);
   }
-  render(ctx) {
-    ctx.beginPath();
-    ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
-    ctx.fillStyle = this.fill;
-    ctx.fill();
+  render(ctx, { mousePosition }) {
+    const isInside = ctx.isPointInPath(
+      this.path,
+      mousePosition.x,
+      mousePosition.y
+    );
+    const fillColor = isInside ? 'red' : this.fill;
+    ctx.fillStyle = fillColor;
+    ctx.fill(this.path);
   }
 }
 

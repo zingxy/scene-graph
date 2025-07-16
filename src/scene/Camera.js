@@ -12,7 +12,10 @@ export class Camera extends DisplayObject {
     const dpr = window.devicePixelRatio || 1;
     // 这是viewport matrix, 也就是camera matrix的逆矩阵
     this.transformMatrix = new DOMMatrix().scale(dpr, dpr);
-
+    this.latestMousePosition = {
+      x: 0,
+      y: 0,
+    };
     this.bindEvents();
   }
   bindEvents() {
@@ -31,6 +34,10 @@ export class Camera extends DisplayObject {
     });
 
     canvas.addEventListener('mousemove', (e) => {
+      this.latestMousePosition = {
+        x: e.offsetX,
+        y: e.offsetY,
+      };
       if (isDragging) {
         const offsetX = e.offsetX - dragStart.x;
         const offsetY = e.offsetY - dragStart.y;
