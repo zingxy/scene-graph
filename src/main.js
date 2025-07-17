@@ -12,14 +12,13 @@ const circle = new Circle(100);
 circle.transformMatrix = new DOMMatrix().translate(500, 200);
 world.stage.addChild(circle);
 
-// const containerB = world.stage.addChild(new Container());
-// containerB.transformMatrix = new DOMMatrix().translate(100, 100).rotate(45);
+const containerB = world.stage.addChild(new Container());
+containerB.transformMatrix = new DOMMatrix().translate(100, 100).rotate(45);
 
-// const containerA = world.stage.addChild(new Container());
-// containerA.transformMatrix = new DOMMatrix().translate(200, 100).rotate(-45);
-
+const containerA = world.stage.addChild(new Container());
+containerA.transformMatrix = new DOMMatrix().translate(200, 100).rotate(-45);
+/*
 canvas.addEventListener('click', (e) => {
-  return;
   const stageWorldMatrix = world.stage.transformMatrix;
   const containerBWorldMatrix = stageWorldMatrix.multiply(
     containerB.transformMatrix
@@ -50,39 +49,27 @@ canvas.addEventListener('click', (e) => {
     localPointA.y
   );
 });
-
+*/
 canvas.addEventListener('click', (e) => {
-  // 这是viewport坐标系下的点击位置
+  // 使用Camera的坐标转换方法
   const { offsetX, offsetY } = e;
 
-  // 将点击位置转换为世界坐标系下的点
-  const worldPoint = world.camera.transformMatrix
-    .inverse()
-    .transformPoint(new DOMPoint(offsetX, offsetY));
+  // 将viewport坐标转换为世界坐标
+  const worldPoint = world.camera.viewportToWorld(offsetX, offsetY);
 
+  // 将世界坐标转换为stage本地坐标
   const stagePoint = world.stage.transformMatrix
     .inverse()
     .transformPoint(worldPoint);
 
   const dot = world.stage.addChild(new Circle(30, 'green'));
-  dot.transformMatrix = new DOMMatrix().translate(
-    stagePoint.x,
-    stagePoint.y
-  );
-  
+  dot.transformMatrix = new DOMMatrix().translate(stagePoint.x, stagePoint.y);
+
+  // 调试信息
+  console.log('Viewport:', offsetX, offsetY);
+  console.log('World:', worldPoint.x, worldPoint.y);
+  console.log('Stage:', stagePoint.x, stagePoint.y);
 });
-
-
-
-Array.from({ length: 200 }).forEach((_, i) => {
-  const circle = new Circle(20, 'blue');
-  world.stage.addChild(circle);
-  circle.transformMatrix = new DOMMatrix().translate(
-    Math.random() * 800,
-    Math.random() * 600
-  );
-});
-
 
 const viewportRect = minimap.stage.addChild(
   new Rect(canvas.width, canvas.height)
@@ -93,7 +80,7 @@ window.world = world;
 
 const loop = () => {
   world.render();
-  // minimap.render();
+  minimap.render();
   viewportRect.transformMatrix = world.camera.transformMatrix.inverse();
   requestAnimationFrame(loop);
 };
