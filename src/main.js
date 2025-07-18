@@ -1,5 +1,5 @@
 import './style.css';
-import { SceneGraph } from './scene/world.js';
+import { SceneGraph } from './scene/World.js';
 import { Circle, Rect, Container } from './scene/DisplayObject.js';
 import { Camera } from './scene/Camera.js';
 

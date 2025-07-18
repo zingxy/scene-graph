@@ -3,14 +3,20 @@ import { DisplayObject } from './DisplayObject.js';
 /**
  * Camera也是World的下的一个Local坐标系
  * 抽象出Camera的目的主要是快速完成Viewport到World的转换
+ * Camera定义了Camera matrix和Viewport matrix
+ * p_viewport = Viewport_matrix * Camera_matrix * p_world
  */
 export class Camera extends DisplayObject {
   constructor(world) {
     super();
     this.world = world;
     this.ctx = world.ctx;
-    // camera matrix的逆矩阵
+    // camera matrix的逆矩阵, camera matrix = this.transformMatrix.inverse()
     this.transformMatrix = new DOMMatrix();
+    const dpr = window.devicePixelRatio || 1;
+    // viewportMatrix用于将viewport坐标转换为camera space坐标; CSS像素到物理像素的转换
+    // p_camera = viewportMatrix * p_viewport
+    this.viewportMatrix = new DOMMatrix().scale(dpr, dpr);
     this.latestMousePosition = {
       x: 0,
       y: 0,
@@ -33,18 +39,20 @@ export class Camera extends DisplayObject {
     });
 
     canvas.addEventListener('mousemove', (e) => {
-      this.latestMousePosition = {
-        x: e.offsetX,
-        y: e.offsetY,
-      };
+      this.latestMousePosition = this.viewportMatrix.transformPoint(
+        new DOMPoint(e.offsetX, e.offsetY)
+      );
       if (isDragging) {
         const offsetX = e.offsetX - dragStart.x;
         const offsetY = e.offsetY - dragStart.y;
         dragStart.x = e.offsetX;
         dragStart.y = e.offsetY;
-        // 保持与缩放操作的一致性，使用物理像素
-        const dpr = window.devicePixelRatio || 1;
-        const T = new DOMMatrix([1, 0, 0, 1, offsetX * dpr, offsetY * dpr]);
+        const viewportX = offsetX;
+        const viewportY = offsetY;
+        const cameraPoint = this.viewportMatrix.transformPoint(
+          new DOMPoint(viewportX, viewportY)
+        );
+        const T = new DOMMatrix([1, 0, 0, 1, cameraPoint.x, cameraPoint.y]);
         this.transformMatrix = T.multiply(this.transformMatrix);
       }
     });
@@ -60,12 +68,14 @@ export class Camera extends DisplayObject {
         } else {
           scale /= zoomFactor;
         }
-        const dpr = window.devicePixelRatio;
-        const mouseX = e.offsetX * dpr;
-        const mouseY = e.offsetY * dpr;
-        const T = new DOMMatrix([1, 0, 0, 1, -mouseX, -mouseY]);
+        const viewportX = e.offsetX;
+        const viewportY = e.offsetY;
+        const cameraPoint = this.viewportMatrix.transformPoint(
+          new DOMPoint(viewportX, viewportY)
+        );
+        const T = new DOMMatrix([1, 0, 0, 1, -cameraPoint.x, -cameraPoint.y]);
         const S = new DOMMatrix([scale, 0, 0, scale, 0, 0]);
-        const T2 = new DOMMatrix([1, 0, 0, 1, mouseX, mouseY]);
+        const T2 = new DOMMatrix([1, 0, 0, 1, cameraPoint.x, cameraPoint.y]);
 
         const ctm = this.transformMatrix;
         this.transformMatrix = T2.multiply(S).multiply(T).multiply(ctm);
@@ -82,9 +92,10 @@ export class Camera extends DisplayObject {
    */
   viewportToWorld(viewportX, viewportY) {
     // transformMatrix 在物理像素空间操作，需要先转换CSS像素到物理像素
-    const dpr = window.devicePixelRatio || 1;
-    const physicalPoint = new DOMPoint(viewportX * dpr, viewportY * dpr);
-    return this.transformMatrix.inverse().transformPoint(physicalPoint);
+    const cameraPoint = this.viewportMatrix.transformPoint(
+      new DOMPoint(viewportX, viewportY)
+    );
+    return this.transformMatrix.inverse().transformPoint(cameraPoint);
   }
 
   /**
@@ -94,9 +105,10 @@ export class Camera extends DisplayObject {
    * @returns {DOMPoint} viewport坐标点
    */
   worldToViewport(worldX, worldY) {
-    const dpr = window.devicePixelRatio || 1;
     const worldPoint = new DOMPoint(worldX, worldY);
-    const physicalPoint = this.transformMatrix.transformPoint(worldPoint);
-    return new DOMPoint(physicalPoint.x / dpr, physicalPoint.y / dpr);
+    const cameraPoint = this.transformMatrix.transformPoint(worldPoint);
+    return this.viewportMatrix.inverse().transformPoint(
+      new DOMPoint(cameraPoint.x, cameraPoint.y)
+    );
   }
 }
