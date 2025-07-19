@@ -10,7 +10,6 @@ export class Camera extends DisplayObject {
   constructor(world) {
     super();
     this.world = world;
-    this.ctx = world.ctx;
     // camera matrix的逆矩阵, camera matrix = this.transformMatrix.inverse()
     this.transformMatrix = new DOMMatrix();
     const dpr = window.devicePixelRatio || 1;
@@ -21,20 +20,24 @@ export class Camera extends DisplayObject {
       x: 0,
       y: 0,
     };
+    this.disabled = false;
+
     this.bindEvents();
   }
   bindEvents() {
-    const canvas = this.ctx.canvas;
+    const canvas = this.world.canvas;
     let isDragging = false;
     let dragStart = { x: 0, y: 0 };
 
     canvas.addEventListener('mousedown', (e) => {
+      if (this.disabled) return;
       isDragging = true;
       dragStart.x = e.offsetX;
       dragStart.y = e.offsetY;
     });
 
     canvas.addEventListener('mouseup', () => {
+      if (this.disabled) return;
       isDragging = false;
     });
 
@@ -42,6 +45,7 @@ export class Camera extends DisplayObject {
       this.latestMousePosition = this.viewportMatrix.transformPoint(
         new DOMPoint(e.offsetX, e.offsetY)
       );
+      if (this.disabled) return;
       if (isDragging) {
         const offsetX = e.offsetX - dragStart.x;
         const offsetY = e.offsetY - dragStart.y;
@@ -59,6 +63,7 @@ export class Camera extends DisplayObject {
     canvas.addEventListener(
       'wheel',
       (e) => {
+        if (this.disabled) return;
         e.preventDefault();
         const zoomFactor = 1.1;
         let scale = 1;
@@ -107,8 +112,8 @@ export class Camera extends DisplayObject {
   worldToViewport(worldX, worldY) {
     const worldPoint = new DOMPoint(worldX, worldY);
     const cameraPoint = this.transformMatrix.transformPoint(worldPoint);
-    return this.viewportMatrix.inverse().transformPoint(
-      new DOMPoint(cameraPoint.x, cameraPoint.y)
-    );
+    return this.viewportMatrix
+      .inverse()
+      .transformPoint(new DOMPoint(cameraPoint.x, cameraPoint.y));
   }
 }
