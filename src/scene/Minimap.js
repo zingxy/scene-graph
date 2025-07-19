@@ -7,6 +7,7 @@ class Minimap {
     this.miniWorld = minimapWorld;
     this.mainWorld = mainWorld;
     this.miniWorld.stage.addChild(this.mainWorld.stage);
+    this.mainWorld.parent = null;
     this.cameraRect = this.miniWorld.stage.addChild(
       new Rect(canvas.width, canvas.height)
     );

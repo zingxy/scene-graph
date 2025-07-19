@@ -1,6 +1,16 @@
 export class DisplayObject {
   constructor() {
+    this.parent = null;
     this.transformMatrix = new DOMMatrix();
+  }
+  get worldTransformMatrix() {
+    let worldMatrix = this.transformMatrix;
+    let parent = this.parent;
+    while (parent) {
+      worldMatrix = parent.transformMatrix.multiply(worldMatrix);
+      parent = parent.parent;
+    }
+    return worldMatrix;
   }
 }
 
@@ -10,6 +20,7 @@ export class Container extends DisplayObject {
     this.children = [];
   }
   addChild(child) {
+    child.parent = this;
     this.children.push(child);
     return child;
   }
@@ -30,14 +41,20 @@ export class Circle extends Shape {
     this.path = new Path2D();
     this.path.arc(0, 0, radius, 0, Math.PI * 2);
   }
-  render(ctx, { mousePosition }) {
-    const isInside = ctx.isPointInPath(
-      this.path,
-      mousePosition.x,
-      mousePosition.y
-    );
-    const fillColor = isInside ? 'red' : this.fill;
-    ctx.fillStyle = fillColor;
+
+  hitTest(point) {
+    const { x, y } = point;
+    const { x: localX, y: localY } = this.worldTransformMatrix
+      .inverse()
+      .transformPoint(new DOMPoint(x, y));
+    return localX * localX + localY * localY <= this.radius * this.radius;
+  }
+  onclick(event) {
+    console.log('Circle clicked', event);
+  }
+
+  render(ctx) {
+    ctx.fillStyle = this.fill;
     ctx.fill(this.path);
   }
 }

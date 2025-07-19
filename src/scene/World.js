@@ -1,5 +1,6 @@
 import { Camera } from './Camera.js';
 import { Container, Shape } from './DisplayObject.js';
+import { drawCoordinateSystem } from './utils.js';
 
 export class SceneGraph {
   constructor(canvas) {
@@ -14,8 +15,37 @@ export class SceneGraph {
 
   init() {
     this.resize();
+    this.bindEvents();
   }
-  bindEvents() {}
+
+  worldToStage(worldX, worldY) {
+    const worldPoint = new DOMPoint(worldX, worldY);
+    const stagePoint = this.stage.transformMatrix
+      .inverse()
+      .transformPoint(worldPoint);
+    return stagePoint;
+  }
+
+  wrapEvent(event) {
+    const { offsetX: viewportX, offsetY: viewportY } = event;
+
+    const worldPoint = this.camera.viewportToWorld(viewportX, viewportY);
+    const stagePoint = this.worldToStage(worldPoint.x, worldPoint.y);
+    return { worldPoint, stagePoint, originalEvent: event };
+  }
+
+  bindEvents() {
+    this.canvas.addEventListener('click', (e) => {
+      const wrappedEvent = this.wrapEvent(e);
+      this.stage.children.forEach((child) => {
+        if (child.hitTest(wrappedEvent.worldPoint)) {
+          child.onclick?.(wrappedEvent);
+        }
+      });
+    });
+
+    this.canvas.addEventListener('mousemove', (e) => {});
+  }
   resize() {
     const dpr = window.devicePixelRatio || 1;
     const rect = this.canvas.getBoundingClientRect();
@@ -30,7 +60,7 @@ export class SceneGraph {
     if (root instanceof Shape) {
       this.ctx.save();
       this.ctx.transform(a, b, c, d, e, f);
-    root.render(this.ctx, { mousePosition: this.camera.latestMousePosition });
+      root.render(this.ctx);
       drawCoordinateSystem(this.ctx);
       this.ctx.restore();
       return;
@@ -59,67 +89,4 @@ export class SceneGraph {
     this.renderSceneGraph(this.stage);
     this.ctx.restore();
   }
-}
-export function drawCoordinateSystem(ctx) {
-  // 设定坐标系的中心
-  const centerX = 0;
-  const centerY = 0;
-
-  // 坐标轴长度
-  const axisLength = 200;
-  // 绘制箭头函数
-  function drawArrow(x, y, axis) {
-    const arrowSize = 10; // 箭头大小
-    ctx.beginPath();
-
-    if (axis === 'x') {
-      // X 轴箭头：右侧箭头
-      ctx.moveTo(x - arrowSize, y - arrowSize / 2); // 左侧箭头
-      ctx.lineTo(x, y);
-      ctx.lineTo(x - arrowSize, y + arrowSize / 2); // 右侧箭头
-    } else if (axis === 'y') {
-      // Y 轴箭头：下侧箭头
-      ctx.moveTo(x - arrowSize / 2, y - arrowSize); // 上侧箭头
-      ctx.lineTo(x, y);
-      ctx.lineTo(x + arrowSize / 2, y - arrowSize); // 下侧箭头
-    }
-
-    ctx.stroke();
-  }
-  // 设置样式
-  ctx.save();
-  ctx.fillStyle = 'blue'; // 原点颜色
-  ctx.beginPath();
-  ctx.arc(centerX, centerY, 10, 0, Math.PI * 2); // 绘制原点
-  ctx.fill();
-
-  ctx.textAlign = 'left';
-  ctx.textBaseline = 'bottom';
-  ctx.lineWidth = 2; // 设置线条宽度
-  ctx.strokeStyle = 'red'; // 坐标轴颜色
-  ctx.fillStyle = 'red'; // 文本颜色
-  ctx.font = '16px Arial';
-
-  // 绘制 X 轴（水平）
-  ctx.beginPath();
-  ctx.moveTo(centerX - 10, centerY); // 从左边开始
-  ctx.lineTo(centerX + axisLength, centerY); // 到右边结束
-  ctx.stroke();
-  // 绘制 X 轴箭头（指向右侧）
-  drawArrow(centerX + axisLength, centerY, 'x');
-  ctx.fillText('X', centerX + axisLength + 10, centerY - 10);
-
-  ctx.strokeStyle = 'green'; // 坐标轴颜色
-  ctx.fillStyle = 'green'; // 文本颜色
-  // 绘制 Y 轴（垂直）
-  ctx.beginPath();
-  ctx.moveTo(centerX, centerY - 10); // 从上面开始
-  ctx.lineTo(centerX, centerY + axisLength); // 到下面结束
-  ctx.stroke();
-  // 绘制 Y 轴箭头（指向下方）
-  drawArrow(centerX, centerY + axisLength, 'y');
-
-  // 添加轴标签
-  ctx.fillText('Y', centerX - 10, centerY + axisLength + 20);
-  ctx.restore();
 }

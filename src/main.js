@@ -8,7 +8,14 @@ const minimapCanvas = document.querySelector('#minimap');
 const world = new SceneGraph(canvas);
 const minimap = new Minimap(world, minimapCanvas);
 
-window.world = world;
+const circle1 = new Circle(20);
+circle1.transformMatrix.translateSelf(100, 100);
+
+const circle2 = new Circle(20);
+circle2.transformMatrix.translateSelf(300, 400).rotateSelf(45);
+
+world.stage.addChild(circle1);
+world.stage.addChild(circle2);
 
 const loop = () => {
   world.render();
@@ -17,3 +24,4 @@ const loop = () => {
 };
 
 loop();
+window.world = world;
