@@ -122,6 +122,26 @@ export class SceneGraph {
       this.ctx.restore();
     }
   }
+  renderBounds(root) {
+    if (!root) return;
+    const bounds = root.getWorldBounds();
+    this.ctx.save();
+    this.ctx.strokeStyle = 'red';
+    this.ctx.lineWidth = 1;
+    this.ctx.strokeRect(
+      bounds.minX,
+      bounds.minY,
+      bounds.maxX - bounds.minX,
+      bounds.maxY - bounds.minY
+    );
+    this.ctx.restore();
+    if (root instanceof Shape) {
+      return;
+    }
+    for (const child of root.children) {
+      this.renderBounds(child);
+    }
+  }
 
   render() {
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
@@ -129,6 +149,7 @@ export class SceneGraph {
     this.ctx.save();
     this.ctx.setTransform(this.camera.transformMatrix);
     this.renderSceneGraph(this.stage);
+    this.renderBounds(this.stage);
     this.ctx.restore();
   }
 }

@@ -1,7 +1,10 @@
 import EventEmitter from 'eventemitter3';
+import { nanoid } from 'nanoid';
+
 export class DisplayObject extends EventEmitter {
   constructor() {
     super();
+    this.id = nanoid();
     this.parent = null;
     this.transformMatrix = new DOMMatrix();
   }
@@ -17,6 +20,19 @@ export class DisplayObject extends EventEmitter {
   hitTest() {
     return false;
   }
+
+  getBounds() {
+    return new Bound({
+      minX: 0,
+      minY: 0,
+      maxX: 0,
+      maxY: 0,
+    });
+  }
+  getWorldBounds() {
+    const bounds = this.getBounds();
+    return bounds.applyMatrix(this.worldTransformMatrix);
+  }
 }
 
 export class Container extends DisplayObject {
@@ -28,6 +44,21 @@ export class Container extends DisplayObject {
     child.parent = this;
     this.children.push(child);
     return child;
+  }
+  getBounds() {
+    if (this.children.length === 0) {
+      return {
+        minX: 0,
+        minY: 0,
+        maxX: 0,
+        maxY: 0,
+      };
+    }
+    let bounds = this.children[0].getBounds();
+    for (let i = 1; i < this.children.length; i++) {
+      bounds = bounds.union(this.children[i].getBounds());
+    }
+    return bounds;
   }
 }
 
@@ -55,6 +86,20 @@ export class Circle extends Shape {
     return localX * localX + localY * localY <= this.radius * this.radius;
   }
 
+  getBounds() {
+    const radius = this.radius;
+    return new Bound({
+      minX: -radius,
+      minY: -radius,
+      maxX: radius,
+      maxY: radius,
+    });
+  }
+  getWorldBounds() {
+    const bounds = this.getBounds();
+    return bounds.applyMatrix(this.worldTransformMatrix);
+  }
+
   render(ctx) {
     ctx.fillStyle = this.fill;
     ctx.fill(this.path);
@@ -71,5 +116,57 @@ export class Rect extends Shape {
     ctx.beginPath();
     ctx.rect(0, 0, this.width, this.height);
     ctx.stroke();
+  }
+}
+
+export class Bound {
+  constructor({ minX, minY, maxX, maxY, ...rest }) {
+    this.minX = minX;
+    this.minY = minY;
+    this.maxX = maxX;
+    this.maxY = maxY;
+    Object.assign(this, rest);
+  }
+
+  union(bound) {
+    return new Bound(
+      Math.min(this.minX, bound.minX),
+      Math.min(this.minY, bound.minY),
+      Math.max(this.maxX, bound.maxX),
+      Math.max(this.maxY, bound.maxY)
+    );
+  }
+  intersects(bound) {
+    return !(
+      this.maxX < bound.minX ||
+      this.minX > bound.maxX ||
+      this.maxY < bound.minY ||
+      this.minY > bound.maxY
+    );
+  }
+  contains(point) {
+    return (
+      point.x >= this.minX &&
+      point.x <= this.maxX &&
+      point.y >= this.minY &&
+      point.y <= this.maxY
+    );
+  }
+  applyMatrix(matrix) {
+    const points = [
+      new DOMPoint(this.minX, this.minY),
+      new DOMPoint(this.maxX, this.minY),
+      new DOMPoint(this.maxX, this.maxY),
+      new DOMPoint(this.minX, this.maxY),
+    ];
+    const transformedPoints = points.map((p) => matrix.transformPoint(p));
+    const xs = transformedPoints.map((p) => p.x);
+    const ys = transformedPoints.map((p) => p.y);
+    return new Bound({
+      minX: Math.min(...xs),
+      minY: Math.min(...ys),
+      maxX: Math.max(...xs),
+      maxY: Math.max(...ys),
+    });
   }
 }
