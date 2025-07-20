@@ -35,16 +35,58 @@ export class SceneGraph {
   }
 
   bindEvents() {
+    // TODO: 实现捕获、冒泡
     this.canvas.addEventListener('click', (e) => {
       const wrappedEvent = this.wrapEvent(e);
+      // 触发全局click 事件
+      this.stage.children.forEach((child) => {
+        child.emit('global:click', wrappedEvent);
+      });
+
+      // 触发所有子对象的点击事件
       this.stage.children.forEach((child) => {
         if (child.hitTest(wrappedEvent.worldPoint)) {
-          child.onclick?.(wrappedEvent);
+          child.emit('click', wrappedEvent);
         }
       });
     });
 
-    this.canvas.addEventListener('mousemove', (e) => {});
+    this.canvas.addEventListener('mousemove', (e) => {
+      // 触发全局 mousemove 事件
+      this.stage.children.forEach((child) => {
+        child.emit('global:mousemove', this.wrapEvent(e));
+      });
+      const wrappedEvent = this.wrapEvent(e);
+      this.stage.children.forEach((child) => {
+        if (child.hitTest(wrappedEvent.worldPoint)) {
+          child.emit('mousemove', wrappedEvent);
+        }
+      });
+    });
+    this.canvas.addEventListener('mousedown', (e) => {
+      // 触发全局 mousedown 事件
+      this.stage.children.forEach((child) => {
+        child.emit('global:mousedown', this.wrapEvent(e));
+      });
+      const wrappedEvent = this.wrapEvent(e);
+      this.stage.children.forEach((child) => {
+        if (child.hitTest(wrappedEvent.worldPoint)) {
+          child.emit('mousedown', wrappedEvent);
+        }
+      });
+    });
+    this.canvas.addEventListener('mouseup', (e) => {
+      // 触发全局 mouseup 事件
+      this.stage.children.forEach((child) => {
+        child.emit('global:mouseup', this.wrapEvent(e));
+      });
+      const wrappedEvent = this.wrapEvent(e);
+      this.stage.children.forEach((child) => {
+        if (child.hitTest(wrappedEvent.worldPoint)) {
+          child.emit('mouseup', wrappedEvent);
+        }
+      });
+    });
   }
   resize() {
     const dpr = window.devicePixelRatio || 1;

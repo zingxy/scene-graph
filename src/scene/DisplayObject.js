@@ -1,5 +1,7 @@
-export class DisplayObject {
+import EventEmitter from 'eventemitter3';
+export class DisplayObject extends EventEmitter {
   constructor() {
+    super();
     this.parent = null;
     this.transformMatrix = new DOMMatrix();
   }
@@ -11,6 +13,9 @@ export class DisplayObject {
       parent = parent.parent;
     }
     return worldMatrix;
+  }
+  hitTest() {
+    return false;
   }
 }
 
@@ -48,9 +53,6 @@ export class Circle extends Shape {
       .inverse()
       .transformPoint(new DOMPoint(x, y));
     return localX * localX + localY * localY <= this.radius * this.radius;
-  }
-  onclick(event) {
-    console.log('Circle clicked', event);
   }
 
   render(ctx) {
