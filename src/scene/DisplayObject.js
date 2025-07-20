@@ -45,7 +45,7 @@ export class Container extends DisplayObject {
     this.children.push(child);
     return child;
   }
-  getBounds() {
+  getWorldBounds() {
     if (this.children.length === 0) {
       return {
         minX: 0,
@@ -54,9 +54,9 @@ export class Container extends DisplayObject {
         maxY: 0,
       };
     }
-    let bounds = this.children[0].getBounds();
+    let bounds = this.children[0].getWorldBounds();
     for (let i = 1; i < this.children.length; i++) {
-      bounds = bounds.union(this.children[i].getBounds());
+      bounds = bounds.union(this.children[i].getWorldBounds());
     }
     return bounds;
   }
@@ -95,10 +95,6 @@ export class Circle extends Shape {
       maxY: radius,
     });
   }
-  getWorldBounds() {
-    const bounds = this.getBounds();
-    return bounds.applyMatrix(this.worldTransformMatrix);
-  }
 
   render(ctx) {
     ctx.fillStyle = this.fill;
@@ -129,12 +125,12 @@ export class Bound {
   }
 
   union(bound) {
-    return new Bound(
-      Math.min(this.minX, bound.minX),
-      Math.min(this.minY, bound.minY),
-      Math.max(this.maxX, bound.maxX),
-      Math.max(this.maxY, bound.maxY)
-    );
+    return new Bound({
+      minX: Math.min(this.minX, bound.minX),
+      minY: Math.min(this.minY, bound.minY),
+      maxX: Math.max(this.maxX, bound.maxX),
+      maxY: Math.max(this.maxY, bound.maxY),
+    });
   }
   intersects(bound) {
     return !(

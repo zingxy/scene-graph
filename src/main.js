@@ -8,10 +8,15 @@ const minimapCanvas = document.querySelector('#minimap');
 const world = new SceneGraph(canvas);
 const minimap = new Minimap(world, minimapCanvas);
 
-const circle1 = new Circle(20);
-circle1.transformMatrix.translateSelf(100, 100);
 let lastPosition = { x: 0, y: 0 };
 let isDragging = false;
+
+const circle1 = new Circle(20);
+circle1.transformMatrix.translateSelf(100, 100);
+circle1.on('click', (event) => {
+  console.log('Circle clicked:', event.worldPoint);
+});
+
 circle1.on('mousedown', (event) => {
   lastPosition = event.worldPoint;
   isDragging = true;
@@ -24,19 +29,23 @@ circle1.on('global:mousemove', (event) => {
   circle1.transformMatrix = translation.multiply(circle1.transformMatrix);
   lastPosition = event.worldPoint;
 });
+
 circle1.on('global:mouseup', (event) => {
   isDragging = false;
 });
 
-const circle2 = new Circle(20);
-circle2.transformMatrix.translateSelf(300, 400).rotateSelf(45);
+const circle2 = new Circle(50);
+circle2.transformMatrix.translateSelf(300, 200);
 
-world.stage.addChild(circle1);
-world.stage.addChild(circle2);
+const container = new Container();
+container.addChild(circle1);
+container.addChild(circle2);
+container.transformMatrix.translateSelf(50, 50);
+world.stage.addChild(container);
 
 const loop = () => {
   world.render();
-  minimap.render();
+  // minimap.render();
   requestAnimationFrame(loop);
 };
 

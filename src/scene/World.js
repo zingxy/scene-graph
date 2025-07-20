@@ -39,55 +39,55 @@ export class SceneGraph {
     this.canvas.addEventListener('click', (e) => {
       const wrappedEvent = this.wrapEvent(e);
       // 触发全局click 事件
-      this.stage.children.forEach((child) => {
-        child.emit('global:click', wrappedEvent);
-      });
-
-      // 触发所有子对象的点击事件
-      this.stage.children.forEach((child) => {
-        if (child.hitTest(wrappedEvent.worldPoint)) {
-          child.emit('click', wrappedEvent);
-        }
-      });
+      this.recursiveTriggerEvent(this.stage, 'global:click', wrappedEvent);
+      this.recursiveTriggerEventWhenHit(this.stage, 'click', wrappedEvent);
     });
 
     this.canvas.addEventListener('mousemove', (e) => {
-      // 触发全局 mousemove 事件
-      this.stage.children.forEach((child) => {
-        child.emit('global:mousemove', this.wrapEvent(e));
-      });
       const wrappedEvent = this.wrapEvent(e);
-      this.stage.children.forEach((child) => {
-        if (child.hitTest(wrappedEvent.worldPoint)) {
-          child.emit('mousemove', wrappedEvent);
-        }
-      });
+      // 触发全局mousemove 事件
+      this.recursiveTriggerEvent(this.stage, 'global:mousemove', wrappedEvent);
+      this.recursiveTriggerEventWhenHit(this.stage, 'mousemove', wrappedEvent);
     });
     this.canvas.addEventListener('mousedown', (e) => {
-      // 触发全局 mousedown 事件
-      this.stage.children.forEach((child) => {
-        child.emit('global:mousedown', this.wrapEvent(e));
-      });
       const wrappedEvent = this.wrapEvent(e);
-      this.stage.children.forEach((child) => {
-        if (child.hitTest(wrappedEvent.worldPoint)) {
-          child.emit('mousedown', wrappedEvent);
-        }
-      });
+      // 触发全局mousedown 事件
+      this.recursiveTriggerEvent(this.stage, 'global:mousedown', wrappedEvent);
+      this.recursiveTriggerEventWhenHit(this.stage, 'mousedown', wrappedEvent);
     });
     this.canvas.addEventListener('mouseup', (e) => {
-      // 触发全局 mouseup 事件
-      this.stage.children.forEach((child) => {
-        child.emit('global:mouseup', this.wrapEvent(e));
-      });
       const wrappedEvent = this.wrapEvent(e);
-      this.stage.children.forEach((child) => {
-        if (child.hitTest(wrappedEvent.worldPoint)) {
-          child.emit('mouseup', wrappedEvent);
-        }
-      });
+      // 触发全局mouseup 事件
+      this.recursiveTriggerEvent(this.stage, 'global:mouseup', wrappedEvent);
+      this.recursiveTriggerEventWhenHit(this.stage, 'mouseup', wrappedEvent);
     });
   }
+
+  recursiveTriggerEvent(root, eventName, event) {
+    if (!root) return;
+    // 触发当前节点的事件
+    root.emit(eventName, event);
+    // 如果是容器，递归触发子节点的事件
+    if (root instanceof Container) {
+      for (const child of root.children) {
+        this.recursiveTriggerEvent(child, eventName, event);
+      }
+    }
+  }
+  recursiveTriggerEventWhenHit(root, eventName, event) {
+    if (!root) return;
+    // 如果当前节点命中，触发事件
+    if (root.hitTest(event.worldPoint)) {
+      root.emit(eventName, event);
+    }
+    // 如果是容器，递归触发子节点的事件
+    if (root instanceof Container) {
+      for (const child of root.children) {
+        this.recursiveTriggerEventWhenHit(child, eventName, event);
+      }
+    }
+  }
+
   resize() {
     const dpr = window.devicePixelRatio || 1;
     const rect = this.canvas.getBoundingClientRect();
