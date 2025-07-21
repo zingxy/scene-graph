@@ -4,6 +4,7 @@ import { SceneGraph } from './World';
 class Minimap {
   constructor(mainWorld, canvas) {
     const minimapWorld = new SceneGraph(canvas);
+    minimapWorld.camera.disabled = false;
     this.miniWorld = minimapWorld;
     this.mainWorld = mainWorld;
     this.miniWorld.stage.addChild(this.mainWorld.stage);

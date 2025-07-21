@@ -35,7 +35,7 @@ circle1.on('global:mouseup', (event) => {
 });
 
 const circle2 = new Circle(50);
-circle2.transformMatrix.translateSelf(300, 200);
+circle2.transformMatrix.translateSelf(300, 200).rotateSelf(45);
 
 const container = new Container();
 container.addChild(circle1);
@@ -45,7 +45,7 @@ world.stage.addChild(container);
 
 const loop = () => {
   world.render();
-  // minimap.render();
+  minimap.render();
   requestAnimationFrame(loop);
 };
 
