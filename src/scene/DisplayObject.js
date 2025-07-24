@@ -5,16 +5,40 @@ export class DisplayObject extends EventEmitter {
   constructor() {
     super();
     this.id = nanoid();
+    this.dirty = true;
     this.parent = null;
-    this.transformMatrix = new DOMMatrix();
+    this._transformMatrix = new DOMMatrix();
+    this.cacheWorldMatrix = null;
+    this.cacheWorldBounds = null;
+  }
+
+  get transformMatrix() {
+    return this._transformMatrix;
+  }
+  set transformMatrix(matrix) {
+    // TODO: 递归使得所有子节点的世界矩阵失效
+    this.cacheWorldMatrix = null
+
+    // world->parent->parent->...local的bounds失效
+    this.cacheWorldBounds = null;
+    let parent = this.parent;
+    while (parent) {
+      parent.cacheWorldBounds = null;
+      parent = parent.parent;
+    }
+    this._transformMatrix = matrix;
   }
   get worldTransformMatrix() {
+    if (this.cacheWorldMatrix) {
+      return this.cacheWorldMatrix;
+    }
     let worldMatrix = this.transformMatrix;
     let parent = this.parent;
     while (parent) {
       worldMatrix = parent.transformMatrix.multiply(worldMatrix);
       parent = parent.parent;
     }
+    this.cacheWorldMatrix = worldMatrix;
     return worldMatrix;
   }
   hitTest() {
@@ -22,15 +46,15 @@ export class DisplayObject extends EventEmitter {
   }
 
   getBounds() {
-    return new Bound({
-      minX: 0,
-      minY: 0,
-      maxX: 0,
-      maxY: 0,
-    });
+    throw new Error('getBounds() must be implemented in subclass');
   }
   getWorldBounds() {
-    return this.getBounds().applyMatrix(this.worldTransformMatrix);
+    throw new Error('getWorldBounds() must be implemented in subclass');
+  }
+
+  markDirty() {
+    this.dirty = true;
+    this.parent?.markDirty();
   }
 }
 
@@ -40,11 +64,15 @@ export class Container extends DisplayObject {
     this.children = [];
   }
   addChild(child) {
+    this.markDirty();
     child.parent = this;
     this.children.push(child);
     return child;
   }
   getWorldBounds() {
+    if (this.cacheWorldBounds) {
+      return this.cacheWorldBounds;
+    }
     if (this.children.length === 0) {
       return {
         minX: 0,
@@ -57,6 +85,7 @@ export class Container extends DisplayObject {
     for (let i = 1; i < this.children.length; i++) {
       bounds = bounds.union(this.children[i].getWorldBounds());
     }
+    this.cacheWorldBounds = bounds;
     return bounds;
   }
 }
@@ -66,8 +95,12 @@ export class Shape extends DisplayObject {
     super();
   }
   getWorldBounds() {
+    if (this.cacheWorldBounds) {
+      return this.cacheWorldBounds;
+    }
     const bounds = this.getBounds();
-    return bounds.applyMatrix(this.worldTransformMatrix);
+    this.cacheWorldBounds = bounds.applyMatrix(this.worldTransformMatrix);
+    return this.cacheWorldBounds;
   }
   render(ctx) {}
 }

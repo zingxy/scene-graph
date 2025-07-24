@@ -2,13 +2,13 @@ import { Camera } from './Camera.js';
 import { Container, Shape } from './DisplayObject.js';
 import { drawCoordinateSystem } from './utils.js';
 import RBush from 'rbush';
+const SUPPORTED_EVENTS = ['click', 'mousemove', 'mousedown', 'mouseup'];
 
 export class SceneGraph {
   constructor(canvas) {
     this.canvas = canvas;
     /**@type {CanvasRenderingContext2D} */
     this.ctx = canvas.getContext('2d');
-    this.shapes = new Map(); // 用于存储所有形状
     this.camera = new Camera(this);
     this.stage = new Container();
     this.rtree = new RBush();
@@ -30,7 +30,6 @@ export class SceneGraph {
 
   wrapEvent(event) {
     const { offsetX: viewportX, offsetY: viewportY } = event;
-
     const worldPoint = this.camera.viewportToWorld(viewportX, viewportY);
     const stagePoint = this.worldToStage(worldPoint.x, worldPoint.y);
     return { worldPoint, stagePoint, originalEvent: event };
@@ -38,32 +37,21 @@ export class SceneGraph {
 
   bindEvents() {
     // TODO: 实现捕获、冒泡
-    this.canvas.addEventListener('click', (e) => {
-      const wrappedEvent = this.wrapEvent(e);
-      // 触发全局click 事件
-      this.recursiveTriggerEvent(this.stage, 'global:click', wrappedEvent);
-      this.recursiveTriggerEventWhenHit(this.stage, 'click', wrappedEvent);
-    });
-
-    this.canvas.addEventListener('mousemove', (e) => {
-      const wrappedEvent = this.wrapEvent(e);
-      // 触发全局mousemove 事件
-      this.recursiveTriggerEvent(this.stage, 'global:mousemove', wrappedEvent);
-      this.recursiveTriggerEventWhenHit(this.stage, 'mousemove', wrappedEvent);
-    });
-    this.canvas.addEventListener('mousedown', (e) => {
-      const wrappedEvent = this.wrapEvent(e);
-      // 触发全局mousedown 事件
-      this.recursiveTriggerEvent(this.stage, 'global:mousedown', wrappedEvent);
-      this.recursiveTriggerEventWhenHit(this.stage, 'mousedown', wrappedEvent);
-    });
-    this.canvas.addEventListener('mouseup', (e) => {
-      const wrappedEvent = this.wrapEvent(e);
-      // 触发全局mouseup 事件
-      this.recursiveTriggerEvent(this.stage, 'global:mouseup', wrappedEvent);
-      this.recursiveTriggerEventWhenHit(this.stage, 'mouseup', wrappedEvent);
+    SUPPORTED_EVENTS.forEach((eventName) => {
+      this.bindEvent(eventName);
     });
   }
+  bindEvent = (eventName) => {
+    this.canvas.addEventListener(eventName, (e) => {
+      const wrappedEvent = this.wrapEvent(e);
+      this.recursiveTriggerEvent(
+        this.stage,
+        `global:${eventName}`,
+        wrappedEvent
+      );
+      this.recursiveTriggerEventWhenHit(this.stage, eventName, wrappedEvent);
+    });
+  };
 
   recursiveTriggerEvent(root, eventName, event) {
     if (!root) return;
@@ -101,27 +89,26 @@ export class SceneGraph {
     // base case
     if (!root) return;
     const { a, b, c, d, e, f } = root.transformMatrix;
-    // 在渲染的时候把形状存入 Map TODO: 好像不应该在这里做
-    this.shapes.set(root.id, root);
     if (root instanceof Shape) {
       this.ctx.save();
       this.ctx.transform(a, b, c, d, e, f);
       root.render(this.ctx);
-      drawCoordinateSystem(this.ctx);
+      // drawCoordinateSystem(this.ctx);
       this.ctx.restore();
       return;
     }
     // make progress
-
+    /*
     this.ctx.save();
     this.ctx.transform(a, b, c, d, e, f);
     drawCoordinateSystem(this.ctx);
     this.ctx.restore();
+    */
 
     for (const child of root.children) {
       this.ctx.save();
       this.ctx.transform(a, b, c, d, e, f);
-      drawCoordinateSystem(this.ctx);
+      // drawCoordinateSystem(this.ctx);
       this.renderSceneGraph(child);
       this.ctx.restore();
     }

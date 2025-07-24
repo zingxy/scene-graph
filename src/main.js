@@ -6,17 +6,20 @@ import { Minimap } from './scene/Minimap.js';
 const canvas = document.querySelector('canvas');
 const minimapCanvas = document.querySelector('#minimap');
 const world = new SceneGraph(canvas);
-const minimap = new Minimap(world, minimapCanvas);
+// const minimap = new Minimap(world, minimapCanvas);
 
 let lastPosition = { x: 0, y: 0 };
 let isDragging = false;
 
-const circle1 = new Circle(20);
+const circle1 = new Circle(50);
 circle1.transformMatrix.translateSelf(100, 100);
-circle1.on('click', (event) => {
-  console.log('Circle clicked:', event.worldPoint);
+circle1.on('click', () => {
+  console.log('Circle clicked');
+  circle1.fill = `#${Math.floor(Math.random() * 0xffffff)
+    .toString(16)
+    .padStart(6, '0')}`;
+  circle1.markDirty();
 });
-
 circle1.on('mousedown', (event) => {
   lastPosition = event.worldPoint;
   isDragging = true;
@@ -34,7 +37,7 @@ circle1.on('global:mouseup', (event) => {
   isDragging = false;
 });
 
-Array.from({ length: 10 }).forEach((_, i) => {
+Array.from({ length: 2000 }).forEach((_, i) => {
   const circle = new Circle(30);
   circle.transformMatrix.translateSelf(
     Math.random() * 1.5 * world.canvas.width,
@@ -53,7 +56,7 @@ world.stage.addChild(container);
 
 const loop = () => {
   world.render();
-  minimap.render();
+  // minimap.render();
   requestAnimationFrame(loop);
 };
 

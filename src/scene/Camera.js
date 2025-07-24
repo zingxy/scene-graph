@@ -16,7 +16,7 @@ export class Camera extends DisplayObject {
     // viewportMatrix用于将viewport坐标转换为camera space坐标; CSS像素到物理像素的转换
     // p_camera = viewportMatrix * p_viewport
     this.viewportMatrix = new DOMMatrix().scale(dpr, dpr);
-    this.disabled = true;
+    this.disabled = false;
     this.bindEvents();
   }
   bindEvents() {
@@ -26,6 +26,7 @@ export class Camera extends DisplayObject {
 
     canvas.addEventListener('mousedown', (e) => {
       if (this.disabled) return;
+      if (e.buttons !== 4) return; // 只响应鼠标中键拖动
       isDragging = true;
       dragStart.x = e.offsetX;
       dragStart.y = e.offsetY;
@@ -38,6 +39,7 @@ export class Camera extends DisplayObject {
 
     canvas.addEventListener('mousemove', (e) => {
       if (this.disabled) return;
+      if (e.buttons !== 4) return; // 只响应鼠标中键拖动
       if (isDragging) {
         const offsetX = e.offsetX - dragStart.x;
         const offsetY = e.offsetY - dragStart.y;
