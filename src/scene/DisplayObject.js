@@ -17,7 +17,7 @@ export class DisplayObject extends EventEmitter {
   }
   set transformMatrix(matrix) {
     // TODO: 递归使得所有子节点的世界矩阵失效
-    this.cacheWorldMatrix = null
+    this.cacheWorldMatrix = null;
 
     // world->parent->parent->...local的bounds失效
     this.cacheWorldBounds = null;
@@ -94,6 +94,14 @@ export class Shape extends DisplayObject {
   constructor() {
     super();
   }
+  getBounds(){
+    return new Bound({
+      minX: 0,
+      minY: 0,
+      maxX: 0,
+      maxY: 0,
+    });
+  }
   getWorldBounds() {
     if (this.cacheWorldBounds) {
       return this.cacheWorldBounds;
@@ -135,6 +143,7 @@ export class Circle extends Shape {
   render(ctx) {
     ctx.fillStyle = this.fill;
     ctx.fill(this.path);
+    return this.path;
   }
 }
 
@@ -148,6 +157,7 @@ export class Rect extends Shape {
     ctx.beginPath();
     ctx.rect(0, 0, this.width, this.height);
     ctx.stroke();
+    return new Path2D();
   }
 }
 

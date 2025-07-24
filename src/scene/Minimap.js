@@ -9,6 +9,9 @@ class Minimap {
     this.mainWorld = mainWorld;
     this.miniWorld.stage.addChild(this.mainWorld.stage);
     this.mainWorld.parent = null;
+    this.miniWorld.camera.transformMatrix
+      .scaleSelf(0.5, 0.5)
+      .translateSelf(100, 100);
     this.cameraRect = this.miniWorld.stage.addChild(
       new Rect(canvas.width, canvas.height)
     );
@@ -22,7 +25,7 @@ class Minimap {
     });
   }
   render() {
-    this.miniWorld.render();
+    this.miniWorld.render('minimap');
   }
 }
 

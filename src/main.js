@@ -6,7 +6,7 @@ import { Minimap } from './scene/Minimap.js';
 const canvas = document.querySelector('canvas');
 const minimapCanvas = document.querySelector('#minimap');
 const world = new SceneGraph(canvas);
-// const minimap = new Minimap(world, minimapCanvas);
+const minimap = new Minimap(world, minimapCanvas);
 
 let lastPosition = { x: 0, y: 0 };
 let isDragging = false;
@@ -37,7 +37,7 @@ circle1.on('global:mouseup', (event) => {
   isDragging = false;
 });
 
-Array.from({ length: 2000 }).forEach((_, i) => {
+Array.from({ length: 50 }).forEach((_, i) => {
   const circle = new Circle(30);
   circle.transformMatrix.translateSelf(
     Math.random() * 1.5 * world.canvas.width,
@@ -56,7 +56,7 @@ world.stage.addChild(container);
 
 const loop = () => {
   world.render();
-  // minimap.render();
+  minimap.render();
   requestAnimationFrame(loop);
 };
 

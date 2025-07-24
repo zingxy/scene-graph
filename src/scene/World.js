@@ -85,7 +85,7 @@ export class SceneGraph {
     this.canvas.height = Math.floor(rect.height * dpr);
   }
 
-  renderSceneGraph(root) {
+  renderSceneGraphWithTransform(root) {
     // base case
     if (!root) return;
     const { a, b, c, d, e, f } = root.transformMatrix;
@@ -109,7 +109,7 @@ export class SceneGraph {
       this.ctx.save();
       this.ctx.transform(a, b, c, d, e, f);
       // drawCoordinateSystem(this.ctx);
-      this.renderSceneGraph(child);
+      this.renderSceneGraphWithTransform(child);
       this.ctx.restore();
     }
   }
@@ -134,13 +134,37 @@ export class SceneGraph {
     }
   }
 
+  renderSceneGraphWithWorldTransform(root) {
+    // base case
+    if (!root) return;
+    if (root instanceof Shape) {
+      this.ctx.setTransform(
+        this.camera.transformMatrix.multiply(root.worldTransformMatrix)
+      );
+      return;
+    }
+    for (const child of root.children) {
+      this.renderSceneGraphWithTransform(child);
+    }
+  }
+
+  calcWorldBounds() {
+    return this.stage.getWorldBounds();
+  }
+
   render() {
-    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     this.ctx.setTransform(1, 0, 0, 1, 0, 0); // 重置变换矩阵
-    this.ctx.save();
-    this.ctx.setTransform(this.camera.transformMatrix);
-    this.renderSceneGraph(this.stage);
+    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    this.ctx.setTransform(this.camera.transformMatrix); // 设置相机变换矩阵
+
+    this.calcWorldBounds();
+    /*
+    支持两种渲染方式
+    1. renderSceneGraphWithTransform，在每次渲染时逐层计算每个节点的变换矩阵
+    2. renderSceneGraphWithWorldTransform， 预先计算好每个节点的世界变换矩阵
+    */
+    // this.renderSceneGraphWithTransform(this.stage);
+    this.renderSceneGraphWithWorldTransform(this.stage);
     this.renderBounds(this.stage);
-    this.ctx.restore();
   }
 }
