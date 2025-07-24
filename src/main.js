@@ -34,12 +34,20 @@ circle1.on('global:mouseup', (event) => {
   isDragging = false;
 });
 
-const circle2 = new Circle(50);
-circle2.transformMatrix.translateSelf(300, 200).rotateSelf(45);
+Array.from({ length: 10 }).forEach((_, i) => {
+  const circle = new Circle(30);
+  circle.transformMatrix.translateSelf(
+    Math.random() * 1.5 * world.canvas.width,
+    Math.random() * 1.5 * world.canvas.height
+  );
+  circle.on('click', (event) => {
+    console.log(`Circle ${i} clicked:`, event.worldPoint);
+  });
+  world.stage.addChild(circle);
+});
 
 const container = new Container();
 container.addChild(circle1);
-container.addChild(circle2);
 container.transformMatrix.translateSelf(50, 50);
 world.stage.addChild(container);
 

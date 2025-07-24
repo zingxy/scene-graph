@@ -1,15 +1,17 @@
 import { Camera } from './Camera.js';
 import { Container, Shape } from './DisplayObject.js';
 import { drawCoordinateSystem } from './utils.js';
+import RBush from 'rbush';
 
 export class SceneGraph {
   constructor(canvas) {
     this.canvas = canvas;
     /**@type {CanvasRenderingContext2D} */
     this.ctx = canvas.getContext('2d');
-    this.shapes = [];
+    this.shapes = new Map(); // 用于存储所有形状
     this.camera = new Camera(this);
     this.stage = new Container();
+    this.rtree = new RBush();
     this.init();
   }
 
@@ -99,6 +101,8 @@ export class SceneGraph {
     // base case
     if (!root) return;
     const { a, b, c, d, e, f } = root.transformMatrix;
+    // 在渲染的时候把形状存入 Map TODO: 好像不应该在这里做
+    this.shapes.set(root.id, root);
     if (root instanceof Shape) {
       this.ctx.save();
       this.ctx.transform(a, b, c, d, e, f);

@@ -30,8 +30,7 @@ export class DisplayObject extends EventEmitter {
     });
   }
   getWorldBounds() {
-    const bounds = this.getBounds();
-    return bounds.applyMatrix(this.worldTransformMatrix);
+    return this.getBounds().applyMatrix(this.worldTransformMatrix);
   }
 }
 
@@ -65,6 +64,10 @@ export class Container extends DisplayObject {
 export class Shape extends DisplayObject {
   constructor() {
     super();
+  }
+  getWorldBounds() {
+    const bounds = this.getBounds();
+    return bounds.applyMatrix(this.worldTransformMatrix);
   }
   render(ctx) {}
 }
