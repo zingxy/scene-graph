@@ -158,15 +158,21 @@ export class SceneGraph {
     this.ctx.setTransform(1, 0, 0, 1, 0, 0); // 重置变换矩阵
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     this.ctx.setTransform(this.camera.transformMatrix); // 设置相机变换矩阵
-
     this.calcWorldBounds();
     /*
     支持两种渲染方式
     1. renderSceneGraphWithTransform，在每次渲染时逐层计算每个节点的变换矩阵
     2. renderSceneGraphWithWorldTransform， 预先计算好每个节点的世界变换矩阵
+    TODO: 两种方式渲染性能benchmark
     */
-    this.renderSceneGraphWithTransform(this.stage);
-    // this.renderSceneGraphWithWorldTransform(this.stage);
+    // this.renderSceneGraphWithTransform(this.stage);
+    this.ctx.save();
+    this.renderSceneGraphWithWorldTransform(this.stage);
+    this.ctx.restore();
+
+    // 绘制bounds
+    this.ctx.save();
     this.renderBounds(this.stage);
+    this.ctx.restore();
   }
 }
