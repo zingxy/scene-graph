@@ -1,4 +1,4 @@
-import { DisplayObject } from './DisplayObject.js';
+import { Container, DisplayObject } from './DisplayObject.js';
 
 /**
  * Camera也是World的下的一个Local坐标系
@@ -6,7 +6,7 @@ import { DisplayObject } from './DisplayObject.js';
  * Camera定义了Camera matrix和Viewport matrix
  * p_viewport = Viewport_matrix * Camera_matrix * p_world
  */
-export class Camera extends DisplayObject {
+export class Camera extends Container {
   constructor(world) {
     super();
     this.world = world;

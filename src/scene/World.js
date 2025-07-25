@@ -137,14 +137,16 @@ export class SceneGraph {
   renderSceneGraphWithWorldTransform(root) {
     // base case
     if (!root) return;
+    this.ctx.resetTransform();
     if (root instanceof Shape) {
       this.ctx.setTransform(
         this.camera.transformMatrix.multiply(root.worldTransformMatrix)
       );
+      root.render(this.ctx);
       return;
     }
     for (const child of root.children) {
-      this.renderSceneGraphWithTransform(child);
+      this.renderSceneGraphWithWorldTransform(child);
     }
   }
 
@@ -163,8 +165,8 @@ export class SceneGraph {
     1. renderSceneGraphWithTransform，在每次渲染时逐层计算每个节点的变换矩阵
     2. renderSceneGraphWithWorldTransform， 预先计算好每个节点的世界变换矩阵
     */
-    // this.renderSceneGraphWithTransform(this.stage);
-    this.renderSceneGraphWithWorldTransform(this.stage);
+    this.renderSceneGraphWithTransform(this.stage);
+    // this.renderSceneGraphWithWorldTransform(this.stage);
     this.renderBounds(this.stage);
   }
 }

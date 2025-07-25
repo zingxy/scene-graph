@@ -16,30 +16,24 @@ export class DisplayObject extends EventEmitter {
     return this._transformMatrix;
   }
   set transformMatrix(matrix) {
-    // TODO: 递归使得所有子节点的世界矩阵失效
-    this.cacheWorldMatrix = null;
+    this.top2Bottom('cacheWorldMatrix');
+    this.top2Bottom('cacheWorldBounds');
 
-    // world->parent->parent->...local的bounds失效
-    this.cacheWorldBounds = null;
-    let parent = this.parent;
-    while (parent) {
-      parent.cacheWorldBounds = null;
-      parent = parent.parent;
-    }
+    // world<-parent<-parent<-...local的bounds失效
+    // 感觉可以优化，比如parent.worldBounds.contains(local.worldBounds)时，就没必要继续失效了
+    this.bottom2Top('cacheWorldBounds');
+
     this._transformMatrix = matrix;
   }
   get worldTransformMatrix() {
     if (this.cacheWorldMatrix) {
       return this.cacheWorldMatrix;
     }
-    let worldMatrix = this.transformMatrix;
-    let parent = this.parent;
-    while (parent) {
-      worldMatrix = parent.transformMatrix.multiply(worldMatrix);
-      parent = parent.parent;
-    }
-    this.cacheWorldMatrix = worldMatrix;
-    return worldMatrix;
+
+    this.cacheWorldMatrix = this.parent
+      ? this.parent.worldTransformMatrix.multiply(this.transformMatrix)
+      : this.transformMatrix;
+    return this.cacheWorldMatrix;
   }
   hitTest() {
     return false;
@@ -52,9 +46,39 @@ export class DisplayObject extends EventEmitter {
     throw new Error('getWorldBounds() must be implemented in subclass');
   }
 
-  markDirty() {
-    this.dirty = true;
-    this.parent?.markDirty();
+  bottom2Top(key) {
+    let parent = this;
+    while (parent) {
+      parent[key] = null;
+      parent = parent.parent;
+    }
+  }
+  top2Bottom(key) {
+    const count = this.dfs(this, (node) => {
+      node[key] = null;
+    });
+    console.log(`top2Bottom: ${key} set ${count} nodes to null`);
+  }
+  dfs(node, callback = () => {}) {
+    // base case
+    let count = 0;
+    if (!node) return;
+    callback(node);
+    count++;
+    if (node instanceof Shape) {
+      return count;
+    }
+    // make progress
+    for (const child of node.children) {
+      count += this.dfs(child, callback);
+    }
+    return count;
+  }
+  global2Local(point) {
+    return this.worldTransformMatrix.inverse().transformPoint(point);
+  }
+  local2Global(point) {
+    return this.worldTransformMatrix.transformPoint(point);
   }
 }
 
@@ -64,7 +88,6 @@ export class Container extends DisplayObject {
     this.children = [];
   }
   addChild(child) {
-    this.markDirty();
     child.parent = this;
     this.children.push(child);
     return child;
@@ -94,7 +117,7 @@ export class Shape extends DisplayObject {
   constructor() {
     super();
   }
-  getBounds(){
+  getBounds() {
     return new Bound({
       minX: 0,
       minY: 0,
