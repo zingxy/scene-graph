@@ -163,12 +163,15 @@ export class SceneGraph {
     支持两种渲染方式
     1. renderSceneGraphWithTransform，在每次渲染时逐层计算每个节点的变换矩阵
     2. renderSceneGraphWithWorldTransform， 预先计算好每个节点的世界变换矩阵
-    TODO: 两种方式渲染性能benchmark
+    经过测试方法【1】性能更优
+    可能的原因：
+    1. setTransform性能比transform性能差
+    2. DOMMatrix矩阵乘法性能差 
     */
-    // this.renderSceneGraphWithTransform(this.stage);
-    this.ctx.save();
-    this.renderSceneGraphWithWorldTransform(this.stage);
-    this.ctx.restore();
+    this.renderSceneGraphWithTransform(this.stage);
+    // this.ctx.save();
+    // this.renderSceneGraphWithWorldTransform(this.stage);
+    // this.ctx.restore();
 
     // 绘制bounds
     this.ctx.save();
