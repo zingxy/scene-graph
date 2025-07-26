@@ -3,29 +3,33 @@ import { nanoid } from 'nanoid';
 import Bound from './Bound.js';
 import { noop } from './utils.js';
 
+const DIRTY_FLAGS = {
+  BOUNDING_BOX: 'boundingBox',
+  TRANSFORM_MATRIX: 'transformMatrix',
+};
+
 export class DisplayObject extends EventEmitter {
   constructor() {
     super();
     this.id = nanoid();
-    this.dirty = true;
+    this.flagQueue = [];
     this.parent = null;
     this._transformMatrix = new DOMMatrix();
     this.cacheWorldMatrix = null;
     this.cacheWorldBounds = null;
+    this.cacheTransformedBounds = null;
+    this.needReflow = true;
+    this.dirty = true;
+    this.batchCount = 0;
   }
 
   get transformMatrix() {
     return this._transformMatrix;
   }
   set transformMatrix(matrix) {
-    this.top2Bottom((node) => {
-      node.cacheWorldMatrix = null;
-      node.cacheWorldBounds = null;
-    });
-
-    this.bottom2Top((node) => {
-      node.cacheWorldBounds = null;
-    });
+    this.batchUpdate(DIRTY_FLAGS.TRANSFORM_MATRIX);
+    this.batchUpdate(DIRTY_FLAGS.BOUNDING_BOX);
+    this.cacheTransformedBounds = null;
     this._transformMatrix = matrix;
   }
 
@@ -47,7 +51,11 @@ export class DisplayObject extends EventEmitter {
     throw new Error('getBounds() must be implemented in subclass');
   }
   getTransformedBounds() {
-    return this.getBounds().applyMatrix(this.transformMatrix);
+    if (this.cacheTransformedBounds) {
+      return this.cacheTransformedBounds;
+    }
+    this.cacheTransformedBounds = this.getBounds().applyMatrix(this.transformMatrix);
+    return this.cacheTransformedBounds;
   }
   getWorldBounds() {
     if (this.cacheWorldBounds) {
@@ -111,6 +119,50 @@ export class DisplayObject extends EventEmitter {
   local2Global(point) {
     return this.worldTransformMatrix.transformPoint(point);
   }
+
+  /**
+   * 为什么要批量更新
+   * circle.transformMatrix = a
+   * circle.transformMatrix = b
+   * 如果没有批量更新，同一tick内，上面会触发两次递归计算
+   * 实际上我们只需要在最后一次更新时计算一次
+   */
+  batchUpdate(flag) {
+    !this.flagQueue.includes(flag) ? this.flagQueue.push(flag) : null;
+    this.batchCount++;
+    if (this.batchCount === 1) {
+      queueMicrotask(() => {
+        this.flagQueue.forEach((flag) => {
+          if (flag === DIRTY_FLAGS.BOUNDING_BOX) {
+            // 只需要向上传播
+            this.top2Bottom((node) => {
+              node.cacheWorldBounds = null;
+              node.needReflow = true;
+            });
+          } else if (flag === DIRTY_FLAGS.TRANSFORM_MATRIX) {
+            // 只需要向下传播
+            this.bottom2Top((node) => {
+              node.cacheWorldMatrix = null;
+              node.needReflow = true;
+            });
+          }
+        });
+        console.warn('批量更新跳过', this.batchCount);
+        this.flagQueue = [];
+        this.batchCount = 0;
+        this.markDirty();
+      });
+    } else {
+    }
+  }
+  markReflow() {
+    this.needReflow = true;
+  }
+  markDirty() {
+    if (this.dirty) return;
+    this.dirty = true;
+    this.parent?.markDirty();
+  }
 }
 
 export class Container extends DisplayObject {
@@ -121,6 +173,8 @@ export class Container extends DisplayObject {
   addChild(child) {
     child.parent = this;
     this.children.push(child);
+    this.batchUpdate(DIRTY_FLAGS.BOUNDING_BOX);
+    this.batchUpdate(DIRTY_FLAGS.TRANSFORM_MATRIX);
     return child;
   }
 
