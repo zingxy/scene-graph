@@ -61,3 +61,5 @@ export function drawCoordinateSystem(ctx) {
   ctx.fillText('Y', centerX - 9, centerY + axisLength + 20);
   ctx.restore();
 }
+
+export const noop = () => {};
