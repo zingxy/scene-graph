@@ -27,8 +27,7 @@ export class DisplayObject extends EventEmitter {
     return this._transformMatrix;
   }
   set transformMatrix(matrix) {
-    this.batchUpdate(DIRTY_FLAGS.TRANSFORM_MATRIX);
-    this.batchUpdate(DIRTY_FLAGS.BOUNDING_BOX);
+    this.batchUpdate();
     this.cacheTransformedBounds = null;
     this._transformMatrix = matrix;
   }
@@ -54,7 +53,9 @@ export class DisplayObject extends EventEmitter {
     if (this.cacheTransformedBounds) {
       return this.cacheTransformedBounds;
     }
-    this.cacheTransformedBounds = this.getBounds().applyMatrix(this.transformMatrix);
+    this.cacheTransformedBounds = this.getBounds().applyMatrix(
+      this.transformMatrix
+    );
     return this.cacheTransformedBounds;
   }
   getWorldBounds() {
@@ -90,13 +91,13 @@ export class DisplayObject extends EventEmitter {
       count++;
       parent = parent.parent;
     }
-    console.log(`Executed bottom2Top: ${count}`);
+    // console.log(`Executed bottom2Top: ${count}`);
   }
   top2Bottom(callback = noop) {
     const count = this.dfs(this, (node) => {
       callback(node);
     });
-    console.log(`Executed top2Bottom: ${count}`);
+    // console.log(`Executed top2Bottom: ${count}`);
   }
   dfs(node, callback = noop) {
     // base case
@@ -127,28 +128,23 @@ export class DisplayObject extends EventEmitter {
    * 如果没有批量更新，同一tick内，上面会触发两次递归计算
    * 实际上我们只需要在最后一次更新时计算一次
    */
-  batchUpdate(flag) {
-    !this.flagQueue.includes(flag) ? this.flagQueue.push(flag) : null;
+  batchUpdate() {
     this.batchCount++;
     if (this.batchCount === 1) {
       queueMicrotask(() => {
-        this.flagQueue.forEach((flag) => {
-          if (flag === DIRTY_FLAGS.BOUNDING_BOX) {
-            // 只需要向上传播
-            this.top2Bottom((node) => {
-              node.cacheWorldBounds = null;
-              node.needReflow = true;
-            });
-          } else if (flag === DIRTY_FLAGS.TRANSFORM_MATRIX) {
-            // 只需要向下传播
-            this.bottom2Top((node) => {
-              node.cacheWorldMatrix = null;
-              node.needReflow = true;
-            });
-          }
+        this.top2Bottom((node) => {
+          // node.cacheWorldBounds = null;
+          // node.cacheWorldMatrix = null;
+          node.needReflow = true;
         });
-        console.warn('批量更新跳过', this.batchCount);
-        this.flagQueue = [];
+
+        this.bottom2Top((node) => {
+          // node.cacheWorldBounds = null;
+          // node.cacheWorldMatrix = null;
+          // node.cacheTransformedBounds = null;
+          node.needReflow = true;
+        });
+
         this.batchCount = 0;
         this.markDirty();
       });
@@ -159,7 +155,6 @@ export class DisplayObject extends EventEmitter {
     this.needReflow = true;
   }
   markDirty() {
-    if (this.dirty) return;
     this.dirty = true;
     this.parent?.markDirty();
   }
@@ -173,8 +168,7 @@ export class Container extends DisplayObject {
   addChild(child) {
     child.parent = this;
     this.children.push(child);
-    this.batchUpdate(DIRTY_FLAGS.BOUNDING_BOX);
-    this.batchUpdate(DIRTY_FLAGS.TRANSFORM_MATRIX);
+    this.batchUpdate();
     return child;
   }
 

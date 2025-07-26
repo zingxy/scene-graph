@@ -145,9 +145,24 @@ export class SceneGraph {
     return this.stage.getWorldBounds();
   }
 
-  render() {
-    if (!this.stage.dirty)
+  reflow() {
+    if (!this.stage.dirty) return;
     this.stage.dirty = false;
+    let count = 0;
+    this.stage.top2Bottom((node) => {
+      if (node.needReflow) {
+        count++;
+        node.needReflow = false;
+        node.cacheWorldBounds = null;
+        node.cacheWorldMatrix = null;
+        node.cacheTransformedBounds = null;
+      }
+    });
+    console.log(`Reflowed ${count} nodes`);
+  }
+
+  render() {
+    this.reflow();
     this.ctx.setTransform(1, 0, 0, 1, 0, 0); // 重置变换矩阵
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     this.ctx.setTransform(this.camera.transformMatrix); // 设置相机变换矩阵
