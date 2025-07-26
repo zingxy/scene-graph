@@ -44,12 +44,12 @@ export class SceneGraph {
   bindEvent = (eventName) => {
     this.canvas.addEventListener(eventName, (e) => {
       const wrappedEvent = this.wrapEvent(e);
-      this.recursiveTriggerEvent(
-        this.stage,
-        `global:${eventName}`,
-        wrappedEvent
-      );
-      this.recursiveTriggerEventWhenHit(this.stage, eventName, wrappedEvent);
+      this.stage.top2Bottom((node) => {
+        node.emit(`global:${eventName}`, wrappedEvent);
+        if (node.hitTest(wrappedEvent.worldPoint)) {
+          node.emit(eventName, wrappedEvent);
+        }
+      });
     });
   };
 
@@ -166,7 +166,7 @@ export class SceneGraph {
 
     // 绘制bounds
     this.ctx.save();
-    this.renderBounds(this.stage);
+    // this.renderBounds(this.stage);
     this.ctx.restore();
   }
 }
