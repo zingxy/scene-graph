@@ -146,6 +146,8 @@ export class SceneGraph {
   }
 
   render() {
+    if (!this.stage.dirty)
+    this.stage.dirty = false;
     this.ctx.setTransform(1, 0, 0, 1, 0, 0); // 重置变换矩阵
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     this.ctx.setTransform(this.camera.transformMatrix); // 设置相机变换矩阵
