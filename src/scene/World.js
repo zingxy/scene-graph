@@ -93,22 +93,13 @@ export class SceneGraph {
       this.ctx.save();
       this.ctx.transform(a, b, c, d, e, f);
       root.render(this.ctx);
-      // drawCoordinateSystem(this.ctx);
       this.ctx.restore();
       return;
     }
     // make progress
-    /*
-    this.ctx.save();
-    this.ctx.transform(a, b, c, d, e, f);
-    drawCoordinateSystem(this.ctx);
-    this.ctx.restore();
-    */
-
     for (const child of root.children) {
       this.ctx.save();
       this.ctx.transform(a, b, c, d, e, f);
-      // drawCoordinateSystem(this.ctx);
       this.renderSceneGraphWithTransform(child);
       this.ctx.restore();
     }

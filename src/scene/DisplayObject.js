@@ -16,15 +16,17 @@ export class DisplayObject extends EventEmitter {
     return this._transformMatrix;
   }
   set transformMatrix(matrix) {
-    this.top2Bottom('cacheWorldMatrix');
-    this.top2Bottom('cacheWorldBounds');
+    this.top2Bottom((node) => {
+      node.cacheWorldMatrix = null;
+      node.cacheWorldBounds = null;
+    });
 
-    // world<-parent<-parent<-...local的bounds失效
-    // 感觉可以优化，比如parent.worldBounds.contains(local.worldBounds)时，就没必要继续失效了
-    this.bottom2Top('cacheWorldBounds');
-
+    this.bottom2Top((node) => {
+      node.cacheWorldBounds = null;
+    });
     this._transformMatrix = matrix;
   }
+
   get worldTransformMatrix() {
     if (this.cacheWorldMatrix) {
       return this.cacheWorldMatrix;
@@ -46,18 +48,21 @@ export class DisplayObject extends EventEmitter {
     throw new Error('getWorldBounds() must be implemented in subclass');
   }
 
-  bottom2Top(key) {
-    let parent = this;
+  bottom2Top(callback = () => {}, includeSelf = true) {
+    let parent = includeSelf ? this : this.parent;
+    let count = 0;
     while (parent) {
-      parent[key] = null;
+      callback(parent);
+      count++;
       parent = parent.parent;
     }
+    console.log(`Executed bottom2Top: ${count}`);
   }
-  top2Bottom(key) {
+  top2Bottom(callback = () => {}) {
     const count = this.dfs(this, (node) => {
-      node[key] = null;
+      callback(node);
     });
-    console.log(`top2Bottom: ${key} set ${count} nodes to null`);
+    console.log(`Executed top2Bottom: ${count}`);
   }
   dfs(node, callback = () => {}) {
     // base case
@@ -97,19 +102,27 @@ export class Container extends DisplayObject {
       return this.cacheWorldBounds;
     }
     if (this.children.length === 0) {
-      return {
+      return new Bound({
         minX: 0,
         minY: 0,
         maxX: 0,
         maxY: 0,
-      };
+        id: this.id,
+      });
     }
     let bounds = this.children[0].getWorldBounds();
     for (let i = 1; i < this.children.length; i++) {
       bounds = bounds.union(this.children[i].getWorldBounds());
     }
-    this.cacheWorldBounds = bounds;
-    return bounds;
+    // 创建新的bounds实例，避免修改原始对象
+    this.cacheWorldBounds = new Bound({
+      minX: bounds.minX,
+      minY: bounds.minY,
+      maxX: bounds.maxX,
+      maxY: bounds.maxY,
+      id: this.id,
+    });
+    return this.cacheWorldBounds;
   }
 }
 
@@ -127,10 +140,26 @@ export class Shape extends DisplayObject {
   }
   getWorldBounds() {
     if (this.cacheWorldBounds) {
-      return this.cacheWorldBounds;
+      if (this.cacheWorldBounds.id !== this.id) {
+        console.warn(
+          `Bounds ID mismatch! Shape ID: ${this.id}, Bounds ID: ${this.cacheWorldBounds.id}`
+        );
+        // 缓存ID不匹配，说明缓存已失效，重新计算
+        this.cacheWorldBounds = null;
+      } else {
+        return this.cacheWorldBounds;
+      }
     }
     const bounds = this.getBounds();
-    this.cacheWorldBounds = bounds.applyMatrix(this.worldTransformMatrix);
+    const transformedBounds = bounds.applyMatrix(this.worldTransformMatrix);
+    // 确保创建新的bounds实例
+    this.cacheWorldBounds = new Bound({
+      minX: transformedBounds.minX,
+      minY: transformedBounds.minY,
+      maxX: transformedBounds.maxX,
+      maxY: transformedBounds.maxY,
+      id: this.id,
+    });
     return this.cacheWorldBounds;
   }
   render(ctx) {}
