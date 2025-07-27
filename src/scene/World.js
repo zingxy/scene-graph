@@ -44,9 +44,24 @@ export class SceneGraph {
   bindEvent = (eventName) => {
     this.canvas.addEventListener(eventName, (e) => {
       const wrappedEvent = this.wrapEvent(e);
+      let candidates = this.rtree.search({
+        minX: wrappedEvent.worldPoint.x,
+        minY: wrappedEvent.worldPoint.y,
+        maxX: wrappedEvent.worldPoint.x,
+        maxY: wrappedEvent.worldPoint.y,
+      });
+      let hitCandidates = new Set();
+      for (const candidate of candidates) {
+        hitCandidates.add(candidate.id);
+      }
+      // console.log(`Hit Candidates for ${eventName}:`, hitCandidates.size);
+      // 触发全局事件
       this.stage.top2Bottom((node) => {
         node.emit(`global:${eventName}`, wrappedEvent);
-        if (node.hitTest(wrappedEvent.worldPoint)) {
+        if (
+          hitCandidates.has(node.id) &&
+          node.hitTest(wrappedEvent.worldPoint)
+        ) {
           node.emit(eventName, wrappedEvent);
         }
       });
@@ -83,6 +98,21 @@ export class SceneGraph {
     const rect = this.canvas.getBoundingClientRect();
     this.canvas.width = Math.floor(rect.width * dpr);
     this.canvas.height = Math.floor(rect.height * dpr);
+  }
+  renderRTree() {
+    this.rtree.data.children.forEach((node) => {
+      this.ctx.save();
+      this.ctx.strokeStyle = 'blue';
+      this.ctx.lineWidth = 1;
+      const bounds = node;
+      this.ctx.strokeRect(
+        bounds.minX,
+        bounds.minY,
+        bounds.maxX - bounds.minX,
+        bounds.maxY - bounds.minY
+      );
+      this.ctx.restore();
+    });
   }
 
   renderSceneGraphWithTransform(root) {
@@ -153,12 +183,49 @@ export class SceneGraph {
       if (node.needReflow) {
         count++;
         node.needReflow = false;
-        node.cacheWorldBounds = null;
-        node.cacheWorldMatrix = null;
-        node.cacheTransformedBounds = null;
+        if (node instanceof Shape) {
+          // 在清空缓存之前，先从 R-tree 中删除旧的 bounds
+          if (node.cacheWorldBounds) {
+            const removed = this.rtree.remove(node.cacheWorldBounds, (a, b) => {
+              return a.id === b.id;
+            });
+            if (!removed) {
+              console.warn(`Failed to remove bounds for node ${node.id}`);
+            }
+          }
+          // 清空缓存
+          node.cacheWorldBounds = null;
+          node.cacheWorldMatrix = null;
+          node.cacheTransformedBounds = null;
+          // 插入新的 bounds
+          const newBounds = node.getWorldBounds();
+          this.rtree.insert(newBounds);
+
+          // 验证：检查是否有重复的 ID
+          /*
+          const duplicates = this.rtree.all().filter((b) => b.id === node.id);
+          if (duplicates.length > 1) {
+            console.error(
+              `Duplicate bounds found for node ${node.id}:`,
+              duplicates
+            );
+          }
+          */
+        } else {
+          // 对于非 Shape 节点，只清空缓存
+          node.cacheWorldBounds = null;
+          node.cacheWorldMatrix = null;
+          node.cacheTransformedBounds = null;
+        }
       }
     });
     console.log(`Reflowed ${count} nodes`);
+  }
+
+  wrap(callback) {
+    this.ctx.save();
+    callback.call(this);
+    this.ctx.restore();
   }
 
   render() {
@@ -166,7 +233,6 @@ export class SceneGraph {
     this.ctx.setTransform(1, 0, 0, 1, 0, 0); // 重置变换矩阵
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     this.ctx.setTransform(this.camera.transformMatrix); // 设置相机变换矩阵
-    this.calcWorldBounds();
     /*
     支持两种渲染方式
     1. renderSceneGraphWithTransform，在每次渲染时逐层计算每个节点的变换矩阵
@@ -177,13 +243,5 @@ export class SceneGraph {
     2. DOMMatrix矩阵乘法性能差 
     */
     this.renderSceneGraphWithTransform(this.stage);
-    // this.ctx.save();
-    // this.renderSceneGraphWithWorldTransform(this.stage);
-    // this.ctx.restore();
-
-    // 绘制bounds
-    this.ctx.save();
-    // this.renderBounds(this.stage);
-    this.ctx.restore();
   }
 }

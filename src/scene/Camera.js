@@ -1,3 +1,4 @@
+import Bound from './Bound.js';
 import { Container, DisplayObject } from './DisplayObject.js';
 
 /**
@@ -6,7 +7,7 @@ import { Container, DisplayObject } from './DisplayObject.js';
  * Camera定义了Camera matrix和Viewport matrix
  * p_viewport = Viewport_matrix * Camera_matrix * p_world
  */
-export class Camera extends Container {
+export class Camera extends DisplayObject {
   constructor(world) {
     super();
     this.world = world;
@@ -18,6 +19,14 @@ export class Camera extends Container {
     this.viewportMatrix = new DOMMatrix().scale(dpr, dpr);
     this.disabled = false;
     this.bindEvents();
+  }
+  getWorldBounds() {
+    return new Bound({
+      minX: 0,
+      minY: 0,
+      maxX: this.world.canvas.width,
+      maxY: this.world.canvas.height,
+    }).applyMatrix(this.transformMatrix.inverse());
   }
   bindEvents() {
     const canvas = this.world.canvas;
