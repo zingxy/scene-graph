@@ -61,7 +61,6 @@ export function drawCoordinateSystem(ctx) {
   ctx.fillText('Y', centerX - 9, centerY + axisLength + 20);
   ctx.restore();
 }
-
 export const noop = () => {};
 export function getRandomColor() {
   const colors = [
@@ -76,3 +75,108 @@ export function getRandomColor() {
   ];
   return colors[Math.floor(Math.random() * colors.length)];
 }
+
+/**
+ * 浏览器兼容的简单 Logger 实现
+ */
+class BrowserLogger {
+  constructor(level = 'info') {
+    this.levels = {
+      error: 0,
+      warn: 1,
+      info: 2,
+      debug: 3,
+    };
+    this.currentLevel = this.levels[level] || this.levels.info;
+
+    // 定义每个级别的样式
+    this.styles = {
+      error:
+        'background: #ff4757; color: white; padding: 2px 6px; border-radius: 3px; font-weight: bold;',
+      warn: 'background: #ffa502; color: white; padding: 2px 6px; border-radius: 3px; font-weight: bold;',
+      info: 'background: #3742fa; color: white; padding: 2px 6px; border-radius: 3px; font-weight: bold;',
+      debug:
+        'background: #747d8c; color: white; padding: 2px 6px; border-radius: 3px; font-weight: bold;',
+    };
+  }
+
+  _formatMessage(level, message, ...args) {
+    // 使用 performance.now() 获取高精度时间戳
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
+    const milliseconds = String(now.getMilliseconds()).padStart(3, '0');
+
+    // 添加微秒级精度（基于 performance.now()）
+    const performanceTime = performance.now();
+    const microseconds = String(
+      Math.floor((performanceTime % 1) * 1000)
+    ).padStart(3, '0');
+
+    const timestamp = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}.${milliseconds}.${microseconds}`;
+
+    const levelStyle = this.styles[level];
+    return {
+      formatted: [
+        `%c${level.toUpperCase()}%c [${timestamp}] ${message}`,
+        levelStyle,
+        '',
+        ...args,
+      ],
+      plain: [`[${timestamp}] [${level.toUpperCase()}] ${message}`, ...args],
+    };
+  }
+
+  error(message, ...args) {
+    if (this.currentLevel >= this.levels.error) {
+      const { formatted } = this._formatMessage('error', message, ...args);
+      console.error(...formatted);
+    }
+  }
+
+  warn(message, ...args) {
+    if (this.currentLevel >= this.levels.warn) {
+      const { formatted } = this._formatMessage('warn', message, ...args);
+      console.warn(...formatted);
+    }
+  }
+
+  info(message, ...args) {
+    if (this.currentLevel >= this.levels.info) {
+      const { formatted } = this._formatMessage('info', message, ...args);
+      console.info(...formatted);
+    }
+  }
+
+  debug(message, ...args) {
+    if (this.currentLevel >= this.levels.debug) {
+      const { formatted } = this._formatMessage('debug', message, ...args);
+      console.log(...formatted);
+    }
+  }
+
+  setLevel(level) {
+    this.currentLevel = this.levels[level] || this.levels.info;
+    this.info(`Logger level set to: ${level}`);
+  }
+
+  // 添加一个方法来显示所有可用的级别
+  showLevels() {
+    console.group('Available Log Levels:');
+    Object.keys(this.levels).forEach((level) => {
+      const style = this.styles[level];
+      console.log(
+        `%c${level.toUpperCase()}%c - Level ${this.levels[level]}`,
+        style,
+        ''
+      );
+    });
+    console.groupEnd();
+  }
+}
+
+export const logger = new BrowserLogger('info');
