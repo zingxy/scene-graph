@@ -7,7 +7,7 @@ import { Container, DisplayObject } from './DisplayObject.js';
  * Camera定义了Camera matrix和Viewport matrix
  * p_viewport = Viewport_matrix * Camera_matrix * p_world
  */
-export class Camera extends DisplayObject {
+export class Camera extends Container {
   constructor(world) {
     super();
     this.world = world;
@@ -18,7 +18,12 @@ export class Camera extends DisplayObject {
     // p_camera = viewportMatrix * p_viewport
     this.viewportMatrix = new DOMMatrix().scale(dpr, dpr);
     this.disabled = false;
+    this.parent = world.stage; // Camera的父容器是World的stage
     this.bindEvents();
+  }
+  markDirty() {
+    this.cacheCandidateSet = null; // 清除缓存的候选集
+    super.markDirty();
   }
   getWorldBounds() {
     return new Bound({
@@ -90,6 +95,23 @@ export class Camera extends DisplayObject {
       },
       { passive: false }
     );
+  }
+
+  getCandidateSet() {
+    if (this.cacheCandidateSet) {
+      return this.cacheCandidateSet;
+    }
+    const candidates = this.world.rtree.search(this.getWorldBounds());
+    const candidateSet = new Set();
+    for (const candidate of candidates) {
+      candidateSet.add(candidate.id);
+    }
+    console.log(
+      `Camera Candidate Set Size: ${candidateSet.size}, Candidates:`,
+      candidateSet
+    );
+    this.cacheCandidateSet = candidateSet;
+    return this.cacheCandidateSet;
   }
 
   /**

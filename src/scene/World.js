@@ -9,8 +9,8 @@ export class SceneGraph {
     this.canvas = canvas;
     /**@type {CanvasRenderingContext2D} */
     this.ctx = canvas.getContext('2d');
-    this.camera = new Camera(this);
     this.stage = new Container();
+    this.camera = new Camera(this);
     this.rtree = new RBush();
     this.init();
   }
@@ -116,23 +116,35 @@ export class SceneGraph {
   }
 
   renderSceneGraphWithTransform(root) {
-    // base case
-    if (!root) return;
-    const { a, b, c, d, e, f } = root.transformMatrix;
-    if (root instanceof Shape) {
-      this.ctx.save();
-      this.ctx.transform(a, b, c, d, e, f);
-      root.render(this.ctx);
-      this.ctx.restore();
-      return;
-    }
-    // make progress
-    for (const child of root.children) {
-      this.ctx.save();
-      this.ctx.transform(a, b, c, d, e, f);
-      this.renderSceneGraphWithTransform(child);
-      this.ctx.restore();
-    }
+    const candidateSet = this.camera.getCandidateSet(); // 确保相机的候选集是最新的
+    const start = performance.now();
+    let count = 0;
+    const dfs = (node) => {
+      if (!node) return;
+      const { a, b, c, d, e, f } = node.transformMatrix;
+      if (node instanceof Shape) {
+        if (!candidateSet.has(node.id)) {
+          return;
+        }
+        count++;
+        this.ctx.save();
+        this.ctx.transform(a, b, c, d, e, f);
+        node.render(this.ctx);
+        this.ctx.restore();
+        return;
+      }
+      // make progress
+      for (const child of node.children) {
+        this.ctx.save();
+        this.ctx.transform(a, b, c, d, e, f);
+        dfs(child);
+        this.ctx.restore();
+      }
+    };
+
+    dfs(root);
+    const end = performance.now();
+    console.log(`Render Time: ${end - start}ms, Rendered Nodes: ${count}`);
   }
   renderBounds(root) {
     if (!root) return;
@@ -229,6 +241,7 @@ export class SceneGraph {
   }
 
   render() {
+    if (!this.stage.dirty) return;
     this.reflow();
     this.ctx.setTransform(1, 0, 0, 1, 0, 0); // 重置变换矩阵
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
