@@ -244,6 +244,27 @@ export class Rect extends Shape {
     this.width = width;
     this.height = height;
   }
+  hitTest(point) {
+    const { x, y } = point;
+    const { x: localX, y: localY } = this.worldTransformMatrix
+      .inverse()
+      .transformPoint(new DOMPoint(x, y));
+    const bounds = this.getBounds();
+    return (
+      localX >= bounds.minX &&
+      localX <= bounds.maxX &&
+      localY >= bounds.minY &&
+      localY <= bounds.maxY
+    );
+  }
+  getBounds() {
+    return new Bound({
+      minX: 0,
+      minY: 0,
+      maxX: this.width,
+      maxY: this.height,
+    });
+  }
   render(ctx) {
     ctx.beginPath();
     ctx.rect(0, 0, this.width, this.height);

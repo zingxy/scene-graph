@@ -1,6 +1,6 @@
 import { Camera } from './Camera.js';
 import { Container, Shape } from './DisplayObject.js';
-import { drawCoordinateSystem } from './utils.js';
+import { drawCoordinateSystem, logger } from './utils.js';
 import RBush from 'rbush';
 const SUPPORTED_EVENTS = ['click', 'mousemove', 'mousedown', 'mouseup'];
 
@@ -231,7 +231,7 @@ export class SceneGraph {
         }
       }
     });
-    console.log(`Reflowed ${count} nodes`);
+    logger.info(`Reflowed ${count} nodes`);
   }
 
   wrap(callback) {

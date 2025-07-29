@@ -2,7 +2,7 @@ import './style.css';
 import { SceneGraph } from './scene/World.js';
 import { Circle, Rect, Container } from './scene/DisplayObject.js';
 import { Minimap } from './scene/Minimap.js';
-import { getRandomColor } from './scene/utils.js';
+import { getRandomColor, logger } from './scene/utils.js';
 import { Ticker } from './scene/Ticker.js';
 
 const canvas = document.querySelector('canvas');
@@ -22,13 +22,6 @@ function addDragBehavior(circle) {
   let isDragging = false;
   let lastPosition = { x: 0, y: 0 };
 
-  circle.on('click', () => {
-    console.log('Circle clicked');
-    circle.fill = `#${Math.floor(Math.random() * 0xffffff)
-      .toString(16)
-      .padStart(6, '0')}`;
-  });
-
   circle.on('mousedown', (event) => {
     lastPosition = event.worldPoint;
     isDragging = true;
@@ -41,6 +34,9 @@ function addDragBehavior(circle) {
     const translation = new DOMMatrix([1, 0, 0, 1, dx, dy]);
     circle.transformMatrix = translation.multiply(circle.transformMatrix);
     lastPosition = event.worldPoint;
+    logger.info(
+      `Circle moved to: ${circle.transformMatrix.e}, ${circle.transformMatrix.f}`
+    );
   });
 
   circle.on('global:mouseup', (event) => {
@@ -51,8 +47,8 @@ function addDragBehavior(circle) {
 // 为主圆形添加拖拽行为
 addDragBehavior(mainCircle);
 
-Array.from({ length: 10000 }).forEach((_, i) => {
-  const smallCircle = new Circle(30);
+Array.from({ length: 10 }).forEach((_, i) => {
+  const smallCircle = Math.random() > 0.5 ? new Circle(30) : new Rect(30, 30);
   smallCircle.fill = getRandomColor();
   smallCircle.transformMatrix.translateSelf(
     Math.random() * canvas.width,
@@ -74,10 +70,6 @@ world.stage.addChild(container);
 // 使用 Ticker 来控制渲染循环
 ticker.add((deltaTime, currentTime) => {
   world.render();
-  // minimap.render();
-
-  // 可以在这里添加其他需要每帧执行的逻辑
-  // console.log(`FPS: ${ticker.getFPS()}, Delta: ${deltaTime.toFixed(2)}ms`);
 });
 
 // 启动 ticker
