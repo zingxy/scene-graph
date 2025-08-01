@@ -97,7 +97,7 @@ export class Camera extends Container {
     );
   }
 
-  getCandidateSet() {
+  getRenderCandidateSet() {
     if (this.cacheCandidateSet) {
       return this.cacheCandidateSet;
     }

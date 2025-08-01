@@ -41,24 +41,34 @@ export class SceneGraph {
       this.bindEvent(eventName);
     });
   }
+  getHitCandidates(wrappedEvent) {
+    let candidates = this.rtree.search({
+      minX: wrappedEvent.worldPoint.x,
+      minY: wrappedEvent.worldPoint.y,
+      maxX: wrappedEvent.worldPoint.x,
+      maxY: wrappedEvent.worldPoint.y,
+    });
+    let hitCandidates = new Set();
+    for (const candidate of candidates) {
+      hitCandidates.add(candidate.id);
+    }
+    return hitCandidates;
+  }
   bindEvent = (eventName) => {
     this.canvas.addEventListener(eventName, (e) => {
-      const wrappedEvent = this.wrapEvent(e);
-      let candidates = this.rtree.search({
-        minX: wrappedEvent.worldPoint.x,
-        minY: wrappedEvent.worldPoint.y,
-        maxX: wrappedEvent.worldPoint.x,
-        maxY: wrappedEvent.worldPoint.y,
-      });
-      let hitCandidates = new Set();
-      for (const candidate of candidates) {
-        hitCandidates.add(candidate.id);
-      }
-      // logger.info('Hit Candidates:', hitCandidates.size);
+      const wrappedEvent = this.currentWrappedEvent || this.wrapEvent(e);
+      this.currentWrappedEvent = wrappedEvent; // 缓存当前事件
+      const hitCandidateSet = this.currentHitCandidateSet || this.getHitCandidates(wrappedEvent);
+      this.currentHitCandidateSet = hitCandidateSet; // 缓存当前命中候选
+      logger.info('Hit Candidates:', hitCandidateSet.size);
+      queueMicrotask(()=>{
+        this.currentHitCandidateSet = null; // 清除缓存
+        this.currentWrappedEvent = null; // 清除缓存
+      })
       this.stage.top2Bottom((node) => {
         node.emit(`global:${eventName}`, wrappedEvent);
         if (
-          hitCandidates.has(node.id) &&
+          hitCandidateSet.has(node.id) &&
           node.hitTest(wrappedEvent.worldPoint)
         ) {
           node.emit(eventName, wrappedEvent);
@@ -66,31 +76,6 @@ export class SceneGraph {
       });
     });
   };
-
-  recursiveTriggerEvent(root, eventName, event) {
-    if (!root) return;
-    // 触发当前节点的事件
-    root.emit(eventName, event);
-    // 如果是容器，递归触发子节点的事件
-    if (root instanceof Container) {
-      for (const child of root.children) {
-        this.recursiveTriggerEvent(child, eventName, event);
-      }
-    }
-  }
-  recursiveTriggerEventWhenHit(root, eventName, event) {
-    if (!root) return;
-    // 如果当前节点命中，触发事件
-    if (root.hitTest(event.worldPoint)) {
-      root.emit(eventName, event);
-    }
-    // 如果是容器，递归触发子节点的事件
-    if (root instanceof Container) {
-      for (const child of root.children) {
-        this.recursiveTriggerEventWhenHit(child, eventName, event);
-      }
-    }
-  }
 
   resize() {
     const dpr = window.devicePixelRatio || 1;
@@ -136,7 +121,7 @@ export class SceneGraph {
   }
 
   renderSceneGraphWithTransform(root) {
-    const candidateSet = this.camera.getCandidateSet(); // 确保相机的候选集是最新的
+    const candidateSet = this.camera.getRenderCandidateSet(); // 确保相机的候选集是最新的
     const start = performance.now();
     let count = 0;
     const dfs = (node) => {
@@ -171,7 +156,7 @@ export class SceneGraph {
   renderSceneGraphWithWorldTransform(root) {
     // base case
 
-    const candidateSet = this.camera.getCandidateSet(); // 确保相机的候选集是最新的
+    const candidateSet = this.camera.getRenderCandidateSet(); // 确保相机的候选集是最新的
     const start = performance.now();
     let count = 0;
 
@@ -196,10 +181,6 @@ export class SceneGraph {
     dfs(root);
     const end = performance.now();
     logger.warn(`Render Time: ${end - start}ms, Rendered Nodes: ${count}`);
-  }
-
-  calcWorldBounds() {
-    return this.stage.getWorldBounds();
   }
 
   reflow() {
