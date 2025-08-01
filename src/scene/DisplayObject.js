@@ -12,35 +12,54 @@ export class DisplayObject extends EventEmitter {
   constructor() {
     super();
     this.id = nanoid();
-    this.flagQueue = [];
     this.parent = null;
+    this.cache = new Map(); // (key: {dirty, value})
     this._transformMatrix = new DOMMatrix();
-    this.cacheWorldMatrix = null;
-    this.cacheWorldBounds = null;
-    this.cacheTransformedBounds = null;
-    this.needReflow = true;
     this.dirty = true;
-    this.batchCount = 0;
+  }
+  cacheValidate(key, dirtyCallback = noop) {
+    if (this.cache.has(key)) {
+      const { dirty, value } = this.cache.get(key);
+      if (dirty) {
+        dirtyCallback(value);
+        return false; // 缓存已失效
+      }
+      return true; // 缓存有效
+    }
+    return false; // 缓存不存在
+  }
+  invalidateCache(key) {
+    if (this.cache.has(key)) {
+      const item = this.cache.get(key);
+      item.dirty = true; // 标记为脏
+      this.cache.set(key, item);
+    }
+  }
+  getCache(key, computeFn, dirtyCallback = noop) {
+    if (this.cacheValidate(key, dirtyCallback)) {
+      return this.cache.get(key).value;
+    }
+    const value = computeFn();
+    this.cache.set(key, { dirty: false, value });
+    return value;
   }
 
   get transformMatrix() {
     return this._transformMatrix;
   }
   set transformMatrix(matrix) {
-    this.batchUpdate();
-    this.cacheTransformedBounds = null;
+    this.batchDraw();
+    this.clearTransformCache(); // 清空变换缓存
     this._transformMatrix = matrix;
   }
 
   get worldTransformMatrix() {
-    if (this.cacheWorldMatrix) {
-      return this.cacheWorldMatrix;
-    }
-
-    this.cacheWorldMatrix = this.parent
-      ? this.parent.worldTransformMatrix.multiply(this.transformMatrix)
-      : this.transformMatrix;
-    return this.cacheWorldMatrix;
+    const computeFn = () => {
+      return this.parent
+        ? this.parent.worldTransformMatrix.multiply(this.transformMatrix)
+        : this.transformMatrix;
+    };
+    return this.getCache('worldTransformMatrix', computeFn);
   }
   hitTest() {
     return false;
@@ -50,37 +69,86 @@ export class DisplayObject extends EventEmitter {
     throw new Error('getBounds() must be implemented in subclass');
   }
   getTransformedBounds() {
-    if (this.cacheTransformedBounds) {
-      return this.cacheTransformedBounds;
-    }
-    this.cacheTransformedBounds = this.getBounds().applyMatrix(
-      this.transformMatrix
-    );
-    return this.cacheTransformedBounds;
+    const computeFn = () => {
+      return this.getBounds().applyMatrix(this.transformMatrix);
+    };
+    return this.getCache('transformedBounds', computeFn);
   }
-  getWorldBounds() {
-    if (this.cacheWorldBounds) {
-      if (this.cacheWorldBounds.id !== this.id) {
-        console.warn(
-          `Bounds ID mismatch! Shape ID: ${this.id}, Bounds ID: ${this.cacheWorldBounds.id}`
-        );
-        // 缓存ID不匹配，说明缓存已失效，重新计算
-        this.cacheWorldBounds = null;
-      } else {
-        return this.cacheWorldBounds;
-      }
+  getWorldBounds(flag = 'DO_NOT_USE_CACHE', dirtyCallback = noop) {
+    const computeFn = () => {
+      const bounds = this.getBounds();
+      const transformedBounds = bounds.applyMatrix(this.worldTransformMatrix);
+      transformedBounds.id = this.id; // 确保ID与当前对象一致
+      return transformedBounds;
+    };
+
+    if (flag === 'DO_NOT_USE_CACHE') {
+      // 手动计算，不使用缓存
+      return computeFn();
     }
-    const bounds = this.getBounds();
-    const transformedBounds = bounds.applyMatrix(this.worldTransformMatrix);
-    // 确保创建新的bounds实例
-    this.cacheWorldBounds = new Bound({
-      minX: transformedBounds.minX,
-      minY: transformedBounds.minY,
-      maxX: transformedBounds.maxX,
-      maxY: transformedBounds.maxY,
-      id: this.id,
+    return this.getCache('worldBounds', computeFn, dirtyCallback);
+  }
+
+  global2Local(point) {
+    return this.worldTransformMatrix.inverse().transformPoint(point);
+  }
+  local2Global(point) {
+    return this.worldTransformMatrix.transformPoint(point);
+  }
+
+  clearTransformCache() {
+    // 如果当前transformMatrix被修改，清空相关缓存
+    // 清空当前和后代节点的缓存
+    if (this.batchTransformEnabled) return;
+    this.top2Bottom((node) => {
+      // 只清空矩阵缓存
+      node.cache.delete('worldTransformMatrix');
     });
-    return this.cacheWorldBounds;
+    this.batchBoundingBoxUpdate();
+  }
+
+  /**
+   * 为什么要批量更新
+   * circle.transformMatrix = a
+   * circle.transformMatrix = b
+   * 如果没有批量更新，同一tick内，上面会触发两次递归计算
+   * 实际上我们只需要在最后一次更新时计算一次
+   */
+  batchTransformUpdate(callback = noop) {
+    this.batchTransformEnabled = true;
+    callback();
+    this.batchTransformEnabled = false;
+    this.clearTransformCache(); // 清空变换缓存
+  }
+  batchBoundingBoxUpdate() {
+    // 当transformMatrix被修改时，清空相关缓存
+    if (this.batchBoundingBoxEnabled) return;
+    this.batchBoundingBoxEnabled = true;
+    queueMicrotask(() => {
+      this.top2Bottom((node) => {
+        node.invalidateCache('worldBounds');
+      });
+      this.bottom2Top((node) => {
+        node.invalidateCache('worldBounds');
+        node.cache.delete('transformedBounds');
+      });
+      this.batchBoundingBoxEnabled = false;
+    });
+  }
+  batchDraw() {
+    if (this.waitingDraw) return;
+    this.waitingDraw = true;
+    queueMicrotask(() => {
+      this.markDirty();
+      this.waitingDraw = false;
+    });
+  }
+  markReflow() {
+    this.needReflow = true;
+  }
+  markDirty() {
+    this.dirty = true;
+    this.parent?.markDirty();
   }
 
   bottom2Top(callback = noop, includeSelf = true) {
@@ -114,50 +182,6 @@ export class DisplayObject extends EventEmitter {
     }
     return count;
   }
-  global2Local(point) {
-    return this.worldTransformMatrix.inverse().transformPoint(point);
-  }
-  local2Global(point) {
-    return this.worldTransformMatrix.transformPoint(point);
-  }
-
-  /**
-   * 为什么要批量更新
-   * circle.transformMatrix = a
-   * circle.transformMatrix = b
-   * 如果没有批量更新，同一tick内，上面会触发两次递归计算
-   * 实际上我们只需要在最后一次更新时计算一次
-   */
-  batchUpdate() {
-    this.batchCount++;
-    if (this.batchCount === 1) {
-      queueMicrotask(() => {
-        this.top2Bottom((node) => {
-          // node.cacheWorldBounds = null;
-          // node.cacheWorldMatrix = null;
-          node.needReflow = true;
-        });
-
-        this.bottom2Top((node) => {
-          // node.cacheWorldBounds = null;
-          // node.cacheWorldMatrix = null;
-          // node.cacheTransformedBounds = null;
-          node.needReflow = true;
-        });
-
-        this.batchCount = 0;
-        this.markDirty();
-      });
-    } else {
-    }
-  }
-  markReflow() {
-    this.needReflow = true;
-  }
-  markDirty() {
-    this.dirty = true;
-    this.parent?.markDirty();
-  }
 }
 
 export class Container extends DisplayObject {
@@ -168,7 +192,8 @@ export class Container extends DisplayObject {
   addChild(child) {
     child.parent = this;
     this.children.push(child);
-    this.batchUpdate();
+    child.clearTransformCache(); // 清空子节点的变换缓存
+    this.batchDraw();
     return child;
   }
 

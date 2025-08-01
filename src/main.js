@@ -47,7 +47,7 @@ function addDragBehavior(circle) {
 // 为主圆形添加拖拽行为
 addDragBehavior(mainCircle);
 
-Array.from({ length: 10 }).forEach((_, i) => {
+Array.from({ length: 10000 }).forEach((_, i) => {
   const smallCircle = Math.random() > 0.5 ? new Circle(30) : new Rect(30, 30);
   smallCircle.fill = getRandomColor();
   smallCircle.transformMatrix.translateSelf(

@@ -54,8 +54,7 @@ export class SceneGraph {
       for (const candidate of candidates) {
         hitCandidates.add(candidate.id);
       }
-      // console.log(`Hit Candidates for ${eventName}:`, hitCandidates.size);
-      // 触发全局事件
+      // logger.info('Hit Candidates:', hitCandidates.size);
       this.stage.top2Bottom((node) => {
         node.emit(`global:${eventName}`, wrappedEvent);
         if (
@@ -144,7 +143,7 @@ export class SceneGraph {
 
     dfs(root);
     const end = performance.now();
-    console.log(`Render Time: ${end - start}ms, Rendered Nodes: ${count}`);
+    logger.info(`Render Time: ${end - start}ms, Rendered Nodes: ${count}`);
   }
   renderBounds(root) {
     if (!root) return;
@@ -188,50 +187,39 @@ export class SceneGraph {
   }
 
   reflow() {
-    if (!this.stage.dirty) return;
-    this.stage.dirty = false;
     let count = 0;
+    const start = performance.now();
     this.stage.top2Bottom((node) => {
-      if (node.needReflow) {
+      if (!node.cacheValidate('worldBounds')) {
         count++;
-        node.needReflow = false;
-        if (node instanceof Shape) {
-          // 在清空缓存之前，先从 R-tree 中删除旧的 bounds
-          if (node.cacheWorldBounds) {
-            const removed = this.rtree.remove(node.cacheWorldBounds, (a, b) => {
+        // 在清空缓存之前，先从 R-tree 中删除旧的 bounds
+        const newBounds = node.getWorldBounds('', (old) => {
+          if (node instanceof Shape) {
+            this.rtree.remove(old, (a, b) => {
               return a.id === b.id;
             });
-            if (!removed) {
-              console.warn(`Failed to remove bounds for node ${node.id}`);
-            }
           }
-          // 清空缓存
-          node.cacheWorldBounds = null;
-          node.cacheWorldMatrix = null;
-          node.cacheTransformedBounds = null;
+        });
+        if (node instanceof Shape) {
           // 插入新的 bounds
-          const newBounds = node.getWorldBounds();
           this.rtree.insert(newBounds);
-
-          // 验证：检查是否有重复的 ID
-          /*
-          const duplicates = this.rtree.all().filter((b) => b.id === node.id);
-          if (duplicates.length > 1) {
-            console.error(
-              `Duplicate bounds found for node ${node.id}:`,
-              duplicates
-            );
-          }
-          */
-        } else {
-          // 对于非 Shape 节点，只清空缓存
-          node.cacheWorldBounds = null;
-          node.cacheWorldMatrix = null;
-          node.cacheTransformedBounds = null;
         }
+
+        // 验证：检查是否有重复的 ID
+        /*
+        const duplicates = this.rtree.all().filter((b) => b.id === node.id);
+        if (duplicates.length > 1) {
+          logger.error(
+            `Duplicate bounds found for node ${node.id}:`,
+            duplicates
+          );
+        }
+        */
       }
     });
-    logger.info(`Reflowed ${count} nodes`);
+    logger.info(
+      `Reflow time: ${performance.now() - start}ms, Reflowed ${count} nodes`
+    );
   }
 
   wrap(callback) {
@@ -242,6 +230,7 @@ export class SceneGraph {
 
   render() {
     if (!this.stage.dirty) return;
+    this.stage.dirty = false;
     this.reflow();
     this.ctx.setTransform(1, 0, 0, 1, 0, 0); // 重置变换矩阵
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
@@ -256,5 +245,8 @@ export class SceneGraph {
     2. DOMMatrix矩阵乘法性能差 
     */
     this.renderSceneGraphWithTransform(this.stage);
+    // this.renderSceneGraphWithWorldTransform(this.stage);
+    // this.renderBounds(this.stage);
+    // this.renderRTree();
   }
 }

@@ -106,10 +106,6 @@ export class Camera extends Container {
     for (const candidate of candidates) {
       candidateSet.add(candidate.id);
     }
-    console.log(
-      `Camera Candidate Set Size: ${candidateSet.size}, Candidates:`,
-      candidateSet
-    );
     this.cacheCandidateSet = candidateSet;
     return this.cacheCandidateSet;
   }
