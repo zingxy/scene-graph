@@ -34,9 +34,6 @@ function addDragBehavior(circle) {
     const translation = new DOMMatrix([1, 0, 0, 1, dx, dy]);
     circle.transformMatrix = translation.multiply(circle.transformMatrix);
     lastPosition = event.worldPoint;
-    logger.info(
-      `Circle moved to: ${circle.transformMatrix.e}, ${circle.transformMatrix.f}`
-    );
   });
 
   circle.on('global:mouseup', (event) => {

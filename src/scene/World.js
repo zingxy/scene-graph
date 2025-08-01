@@ -114,6 +114,27 @@ export class SceneGraph {
     });
   }
 
+  renderBounds(root) {
+    if (!root) return;
+    const bounds = root.getWorldBounds();
+    this.ctx.save();
+    this.ctx.strokeStyle = 'red';
+    this.ctx.lineWidth = 1;
+    this.ctx.strokeRect(
+      bounds.minX,
+      bounds.minY,
+      bounds.maxX - bounds.minX,
+      bounds.maxY - bounds.minY
+    );
+    this.ctx.restore();
+    if (root instanceof Shape) {
+      return;
+    }
+    for (const child of root.children) {
+      this.renderBounds(child);
+    }
+  }
+
   renderSceneGraphWithTransform(root) {
     const candidateSet = this.camera.getCandidateSet(); // 确保相机的候选集是最新的
     const start = performance.now();
@@ -141,45 +162,40 @@ export class SceneGraph {
       }
     };
 
+    this.ctx.setTransform(this.camera.transformMatrix); // 设置相机变换矩阵
     dfs(root);
     const end = performance.now();
     logger.info(`Render Time: ${end - start}ms, Rendered Nodes: ${count}`);
   }
-  renderBounds(root) {
-    if (!root) return;
-    const bounds = root.getWorldBounds();
-    this.ctx.save();
-    this.ctx.strokeStyle = 'red';
-    this.ctx.lineWidth = 1;
-    this.ctx.strokeRect(
-      bounds.minX,
-      bounds.minY,
-      bounds.maxX - bounds.minX,
-      bounds.maxY - bounds.minY
-    );
-    this.ctx.restore();
-    if (root instanceof Shape) {
-      return;
-    }
-    for (const child of root.children) {
-      this.renderBounds(child);
-    }
-  }
 
   renderSceneGraphWithWorldTransform(root) {
     // base case
-    if (!root) return;
-    this.ctx.resetTransform();
-    if (root instanceof Shape) {
-      this.ctx.setTransform(
-        this.camera.transformMatrix.multiply(root.worldTransformMatrix)
-      );
-      root.render(this.ctx);
-      return;
-    }
-    for (const child of root.children) {
-      this.renderSceneGraphWithWorldTransform(child);
-    }
+
+    const candidateSet = this.camera.getCandidateSet(); // 确保相机的候选集是最新的
+    const start = performance.now();
+    let count = 0;
+
+    const dfs = (node) => {
+      if (!node) return;
+      if (node instanceof Shape) {
+        if (!candidateSet.has(node.id)) {
+          return;
+        }
+        this.ctx.setTransform(
+          this.camera.transformMatrix.multiply(node.worldTransformMatrix)
+        );
+        count++;
+        node.render(this.ctx);
+        return;
+      }
+      for (const child of node.children) {
+        dfs(child);
+      }
+    };
+
+    dfs(root);
+    const end = performance.now();
+    logger.warn(`Render Time: ${end - start}ms, Rendered Nodes: ${count}`);
   }
 
   calcWorldBounds() {
@@ -234,7 +250,6 @@ export class SceneGraph {
     this.reflow();
     this.ctx.setTransform(1, 0, 0, 1, 0, 0); // 重置变换矩阵
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-    this.ctx.setTransform(this.camera.transformMatrix); // 设置相机变换矩阵
     /*
     支持两种渲染方式
     1. renderSceneGraphWithTransform，在每次渲染时逐层计算每个节点的变换矩阵
