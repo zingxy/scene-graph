@@ -58,13 +58,14 @@ export class SceneGraph {
     this.canvas.addEventListener(eventName, (e) => {
       const wrappedEvent = this.currentWrappedEvent || this.wrapEvent(e);
       this.currentWrappedEvent = wrappedEvent; // 缓存当前事件
-      const hitCandidateSet = this.currentHitCandidateSet || this.getHitCandidates(wrappedEvent);
+      const hitCandidateSet =
+        this.currentHitCandidateSet || this.getHitCandidates(wrappedEvent);
       this.currentHitCandidateSet = hitCandidateSet; // 缓存当前命中候选
       logger.info('Hit Candidates:', hitCandidateSet.size);
-      queueMicrotask(()=>{
+      queueMicrotask(() => {
         this.currentHitCandidateSet = null; // 清除缓存
         this.currentWrappedEvent = null; // 清除缓存
-      })
+      });
       this.stage.top2Bottom((node) => {
         node.emit(`global:${eventName}`, wrappedEvent);
         if (
@@ -126,11 +127,11 @@ export class SceneGraph {
     let count = 0;
     const dfs = (node) => {
       if (!node) return;
-      const { a, b, c, d, e, f } = node.transformMatrix;
       if (node instanceof Shape) {
         if (!candidateSet.has(node.id)) {
           return;
         }
+        const { a, b, c, d, e, f } = node.transformMatrix;
         count++;
         this.ctx.save();
         this.ctx.transform(a, b, c, d, e, f);
@@ -140,6 +141,7 @@ export class SceneGraph {
       }
       // make progress
       for (const child of node.children) {
+        const { a, b, c, d, e, f } = node.transformMatrix;
         this.ctx.save();
         this.ctx.transform(a, b, c, d, e, f);
         dfs(child);
