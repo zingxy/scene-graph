@@ -1,3 +1,4 @@
+import Bound from './Bound.js';
 import { Camera } from './Camera.js';
 import { Container, Shape } from './DisplayObject.js';
 import { drawCoordinateSystem, logger } from './utils.js';
@@ -13,6 +14,7 @@ export class SceneGraph {
     this.camera = new Camera(this);
     this.rtree = new RBush();
     this.init();
+    this.dirtyBounds = null;
   }
 
   init() {
@@ -123,20 +125,37 @@ export class SceneGraph {
 
   renderSceneGraphWithTransform(root) {
     const candidateSet = this.camera.getRenderCandidateSet(); // 确保相机的候选集是最新的
+    const dirtyBounds =
+      this.dirtyBounds ||
+      new Bound({
+        minX: 0,
+        minY: 0,
+        maxX: this.canvas.width,
+        maxY: this.canvas.height,
+      });
+
+    const dirtyCandidateSet = new Set();
+    this.rtree.search(dirtyBounds).forEach((b) => {
+      dirtyCandidateSet.add(b.id);
+    });
+
     const start = performance.now();
     let count = 0;
+
     const dfs = (node) => {
       if (!node) return;
       if (node instanceof Shape) {
-        if (!candidateSet.has(node.id)) {
-          return;
+        if (
+          candidateSet.has(node.id) &&
+          (dirtyCandidateSet.has(node.id) || this.forceupdate)
+        ) {
+          const { a, b, c, d, e, f } = node.transformMatrix;
+          count++;
+          this.ctx.save();
+          this.ctx.transform(a, b, c, d, e, f);
+          node.render(this.ctx);
+          this.ctx.restore();
         }
-        const { a, b, c, d, e, f } = node.transformMatrix;
-        count++;
-        this.ctx.save();
-        this.ctx.transform(a, b, c, d, e, f);
-        node.render(this.ctx);
-        this.ctx.restore();
         return;
       }
       // make progress
@@ -149,10 +168,20 @@ export class SceneGraph {
       }
     };
 
-    this.ctx.setTransform(this.camera.transformMatrix); // 设置相机变换矩阵
     dfs(root);
+    this.dirtyBounds = null; // 清除脏区域缓存
+    this.forceupdate = false; // 重置 forceupdate 标志
     const end = performance.now();
-    logger.info(`Render Time: ${end - start}ms, Rendered Nodes: ${count}`);
+
+    logger.info('candidateSet size:', candidateSet.size);
+    logger.info('dirtyCandidateSet size:', dirtyCandidateSet.size);
+    logger.info(
+      `Render Time: ${
+        end - start
+      }ms, Rendered Nodes: ${count}, DirtyCandidateSet: ${
+        dirtyCandidateSet.size
+      }, CameracandidateSet size: ${candidateSet.size}`
+    );
   }
 
   renderSceneGraphWithWorldTransform(root) {
@@ -188,17 +217,34 @@ export class SceneGraph {
   reflow() {
     let count = 0;
     const start = performance.now();
+    this.dirtyBounds = null;
     this.stage.top2Bottom((node) => {
       if (!node.cacheValidate('worldBounds')) {
         count++;
         // 在清空缓存之前，先从 R-tree 中删除旧的 bounds
+        let oldBounds = null;
         const newBounds = node.getWorldBounds('', (old) => {
           if (node instanceof Shape) {
+            oldBounds = old;
             this.rtree.remove(old, (a, b) => {
               return a.id === b.id;
             });
           }
         });
+        if (node instanceof Shape) {
+          if (!this.dirtyBounds) {
+            this.dirtyBounds = new Bound({
+              minX: newBounds.minX,
+              minY: newBounds.minY,
+              maxX: newBounds.maxX,
+              maxY: newBounds.maxY,
+            });
+          }
+          if (oldBounds) {
+            this.dirtyBounds = this.dirtyBounds.union(oldBounds);
+          }
+          this.dirtyBounds = this.dirtyBounds.union(newBounds);
+        }
         if (node instanceof Shape) {
           // 插入新的 bounds
           this.rtree.insert(newBounds);
@@ -227,12 +273,35 @@ export class SceneGraph {
     this.ctx.restore();
   }
 
+  cleanDirtyBounds(dirtyBounds) {
+    // 清理脏区域（也使用世界坐标，因为Canvas会自动转换）
+    this.ctx.clearRect(
+      dirtyBounds.minX,
+      dirtyBounds.minY,
+      dirtyBounds.maxX - dirtyBounds.minX,
+      dirtyBounds.maxY - dirtyBounds.minY
+    );
+    // 设置 clip 区域（使用世界坐标，因为已经设置了相机变换）
+    this.ctx.beginPath(); // 重要：开始新路径
+    this.ctx.rect(
+      dirtyBounds.minX,
+      dirtyBounds.minY,
+      dirtyBounds.maxX - dirtyBounds.minX,
+      dirtyBounds.maxY - dirtyBounds.minY
+    );
+    this.ctx.clip();
+  }
+
   render() {
     if (!this.stage.dirty) return;
     this.stage.dirty = false;
     this.reflow();
-    this.ctx.setTransform(1, 0, 0, 1, 0, 0); // 重置变换矩阵
-    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    this.ctx.save();
+    this.ctx.setTransform(this.camera.transformMatrix); // 设置相机变换矩阵
+
+    // 修复：使用世界坐标系的默认边界
+    const defaultWorldBounds = this.camera.getWorldBounds();
+    this.cleanDirtyBounds(this.dirtyBounds || defaultWorldBounds);
     /*
     支持两种渲染方式
     1. renderSceneGraphWithTransform，在每次渲染时逐层计算每个节点的变换矩阵
@@ -242,7 +311,9 @@ export class SceneGraph {
     1. setTransform性能比transform性能差
     2. DOMMatrix矩阵乘法性能差 
     */
+
     this.renderSceneGraphWithTransform(this.stage);
+    this.ctx.restore();
     // this.renderSceneGraphWithWorldTransform(this.stage);
     // this.renderBounds(this.stage);
     // this.renderRTree();

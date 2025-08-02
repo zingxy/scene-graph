@@ -23,6 +23,7 @@ export class Camera extends Container {
   }
   markDirty() {
     this.cacheCandidateSet = null; // 清除缓存的候选集
+    this.world.forceupdate = true;
     super.markDirty();
   }
   getWorldBounds() {

@@ -15,7 +15,7 @@ const ticker = new Ticker(60);
 
 // 创建第一个大圆形
 const mainCircle = new Circle(50);
-mainCircle.transformMatrix.translateSelf(100, 100);
+mainCircle.transformMatrix.translateSelf(800, 200);
 
 // 为每个圆形添加拖拽功能的函数
 function addDragBehavior(circle) {
@@ -44,8 +44,8 @@ function addDragBehavior(circle) {
 // 为主圆形添加拖拽行为
 addDragBehavior(mainCircle);
 
-Array.from({ length: 10000 }).forEach((_, i) => {
-  const smallCircle = Math.random() > 0.5 ? new Circle(30) : new Rect(30, 30);
+Array.from({ length: 20000 }).forEach((_, i) => {
+  const smallCircle = new Circle(30);
   smallCircle.fill = getRandomColor();
   smallCircle.transformMatrix.translateSelf(
     Math.random() * canvas.width,
@@ -72,30 +72,6 @@ ticker.add((deltaTime, currentTime) => {
 // 启动 ticker
 ticker.start();
 
-// 添加一些调试功能
-let fpsDisplay = document.createElement('div');
-fpsDisplay.style.position = 'fixed';
-fpsDisplay.style.top = '10px';
-fpsDisplay.style.left = '10px';
-fpsDisplay.style.background = 'rgba(0,0,0,0.7)';
-fpsDisplay.style.color = 'white';
-fpsDisplay.style.padding = '10px';
-fpsDisplay.style.fontFamily = 'monospace';
-fpsDisplay.style.fontSize = '12px';
-fpsDisplay.style.zIndex = '1000';
-document.body.appendChild(fpsDisplay);
-
-// 更新 FPS 显示
-ticker.add(() => {
-  fpsDisplay.innerHTML = `
-    Target FPS: ${ticker.targetFPS}<br>
-    Current FPS: ${ticker.getFPS()}<br>
-    Delta Time: ${ticker.getDeltaTime().toFixed(2)}ms<br>
-    <button onclick="window.ticker.setTargetFPS(30)">30 FPS</button>
-    <button onclick="window.ticker.setTargetFPS(60)">60 FPS</button>
-    <button onclick="window.ticker.setTargetFPS(15)">15 FPS</button>
-  `;
-}, -1); // 低优先级，最后执行
-
 window.world = world;
+window.mainCircle = mainCircle;
 window.ticker = ticker;
