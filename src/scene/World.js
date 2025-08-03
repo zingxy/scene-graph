@@ -147,7 +147,7 @@ export class SceneGraph {
       if (node instanceof Shape) {
         if (
           candidateSet.has(node.id) &&
-          (dirtyCandidateSet.has(node.id) || this.forceupdate)
+          (this.forceupdate || dirtyCandidateSet.has(node.id))
         ) {
           const { a, b, c, d, e, f } = node.transformMatrix;
           count++;
@@ -167,6 +167,7 @@ export class SceneGraph {
         this.ctx.restore();
       }
     };
+    logger.warn('forceupdate:', this.forceupdate);
 
     dfs(root);
     this.dirtyBounds = null; // 清除脏区域缓存
@@ -274,7 +275,13 @@ export class SceneGraph {
   }
 
   cleanDirtyBounds(dirtyBounds) {
-    // 清理脏区域（也使用世界坐标，因为Canvas会自动转换）
+    if (this.forceupdate) {
+      this.ctx.save();
+      this.ctx.setTransform(1, 0, 0, 1, 0, 0); // 重置变换矩阵
+      this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+      this.ctx.restore();
+      return;
+    }
     this.ctx.clearRect(
       dirtyBounds.minX,
       dirtyBounds.minY,
@@ -301,7 +308,13 @@ export class SceneGraph {
 
     // 修复：使用世界坐标系的默认边界
     const defaultWorldBounds = this.camera.getWorldBounds();
-    this.cleanDirtyBounds(this.dirtyBounds || defaultWorldBounds);
+    let dirtyBounds = this.dirtyBounds || defaultWorldBounds;
+    dirtyBounds.minX = Math.floor(dirtyBounds.minX);
+    dirtyBounds.minY = Math.floor(dirtyBounds.minY);
+    dirtyBounds.maxX = Math.ceil(dirtyBounds.maxX);
+    dirtyBounds.maxY = Math.ceil(dirtyBounds.maxY);
+    this.dirtyBounds = dirtyBounds;
+    this.cleanDirtyBounds(dirtyBounds);
     /*
     支持两种渲染方式
     1. renderSceneGraphWithTransform，在每次渲染时逐层计算每个节点的变换矩阵
