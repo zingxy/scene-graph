@@ -3,9 +3,19 @@ import { nanoid } from 'nanoid';
 import Bound from './Bound.js';
 import { noop } from './utils.js';
 
-const DIRTY_FLAGS = {
-  BOUNDING_BOX: 'boundingBox',
-  TRANSFORM_MATRIX: 'transformMatrix',
+const createReactiveXY = (obj, callback) => {
+  return new Proxy(obj, {
+    set(target, prop, value) {
+      if ((prop === 'x' || prop === 'y') && target[prop] !== value) {
+        target[prop] = value;
+        // console.log(`Property ${prop} changed to ${value}`);
+        callback(prop, value);
+      } else if (prop !== 'x' && prop !== 'y') {
+        target[prop] = value;
+      }
+      return true;
+    },
+  });
 };
 
 export class DisplayObject extends EventEmitter {
@@ -14,9 +24,30 @@ export class DisplayObject extends EventEmitter {
     this.id = nanoid();
     this.parent = null;
     this.cache = new Map(); // (key: {dirty, value})
-    this._transformMatrix = new DOMMatrix();
     this.dirty = true;
+
+    this.position = createReactiveXY(
+      { x: 0, y: 0 },
+      this.clearTransformCache.bind(this)
+    );
+    this._rotation = 0; // 以弧度为单位
+    this.scale = createReactiveXY(
+      { x: 1, y: 1 },
+      this.clearTransformCache.bind(this)
+    );
+    this.skew = createReactiveXY(
+      { x: 0, y: 0 },
+      this.clearTransformCache.bind(this)
+    );
   }
+  get rotation() {
+    return this._rotation;
+  }
+  set rotation(value) {
+    this._rotation = value;
+    this.clearTransformCache();
+  }
+
   cacheValidate(key, dirtyCallback = noop) {
     if (this.cache.has(key)) {
       const { dirty, value } = this.cache.get(key);
@@ -45,12 +76,60 @@ export class DisplayObject extends EventEmitter {
   }
 
   get transformMatrix() {
-    return this._transformMatrix;
+    const matrix = new DOMMatrix();
+    matrix.translateSelf(this.position.x, this.position.y);
+    matrix.rotateSelf(this.rotation * (180 / Math.PI)); // 转换为度
+    matrix.skewXSelf(this.skew.x);
+    matrix.skewYSelf(this.skew.y);
+    matrix.scaleSelf(this.scale.x, this.scale.y);
+    return matrix;
+  }
+  decompose(matrix) {
+    const { a, b, c, d, e, f } = matrix;
+
+    const delta = a * d - b * c;
+
+    const result = {
+      x: e,
+      y: f,
+      rotation: 0,
+      scaleX: 0,
+      scaleY: 0,
+      skewX: 0,
+      skewY: 0,
+    };
+
+    // Apply the QR-like decomposition.
+    if (a != 0 || b != 0) {
+      const r = Math.sqrt(a * a + b * b);
+      result.rotation = b > 0 ? Math.acos(a / r) : -Math.acos(a / r);
+      result.scaleX = r;
+      result.scaleY = delta / r;
+      result.skewX = (a * c + b * d) / delta;
+      result.skewY = 0;
+    } else if (c != 0 || d != 0) {
+      const s = Math.sqrt(c * c + d * d);
+      result.rotation =
+        Math.PI / 2 - (d > 0 ? Math.acos(-c / s) : -Math.acos(c / s));
+      result.scaleX = delta / s;
+      result.scaleY = s;
+      result.skewX = 0;
+      result.skewY = (a * c + b * d) / delta;
+    } else {
+      // a = b = c = d = 0
+    }
+    this.position.x = result.x;
+    this.position.y = result.y;
+    this.rotation = result.rotation;
+    this.scale.x = result.scaleX;
+    this.scale.y = result.scaleY;
+    this.skew.x = result.skewX;
+    this.skew.y = result.skewY;
   }
   set transformMatrix(matrix) {
-    this.batchDraw();
-    this.clearTransformCache(); // 清空变换缓存
-    this._transformMatrix = matrix;
+    this.batchTransformUpdate(() => {
+      this.decompose(matrix);
+    });
   }
 
   get worldTransformMatrix() {
@@ -105,6 +184,7 @@ export class DisplayObject extends EventEmitter {
       node.cache.delete('worldTransformMatrix');
     });
     this.batchBoundingBoxUpdate();
+    this.batchDraw();
   }
 
   /**
@@ -193,7 +273,6 @@ export class Container extends DisplayObject {
     child.parent = this;
     this.children.push(child);
     child.clearTransformCache(); // 清空子节点的变换缓存
-    this.batchDraw();
     return child;
   }
 

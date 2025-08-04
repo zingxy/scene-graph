@@ -47,11 +47,8 @@ addDragBehavior(mainCircle);
 Array.from({ length: 20000 }).forEach((_, i) => {
   const smallCircle = new Circle(30);
   smallCircle.fill = getRandomColor();
-  smallCircle.transformMatrix.translateSelf(
-    Math.random() * canvas.width,
-    Math.random() * canvas.height
-  );
-  smallCircle.transformMatrix.translateSelf(100, 100);
+  smallCircle.position.x = Math.random() * canvas.width;
+  smallCircle.position.y = Math.random() * canvas.height;
 
   // 为每个小圆形添加拖拽行为
   addDragBehavior(smallCircle);
