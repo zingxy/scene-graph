@@ -299,21 +299,75 @@ export class SceneGraph {
     this.ctx.clip();
   }
 
+  // 正确的像素对齐实现：考虑完整的相机变换矩阵
+  alignBoundsToPixels = (bounds, cameraMatrix) => {
+    // 将世界坐标的四个角转换到屏幕坐标
+    const topLeft = cameraMatrix.transformPoint(
+      new DOMPoint(bounds.minX, bounds.minY)
+    );
+    const topRight = cameraMatrix.transformPoint(
+      new DOMPoint(bounds.maxX, bounds.minY)
+    );
+    const bottomLeft = cameraMatrix.transformPoint(
+      new DOMPoint(bounds.minX, bounds.maxY)
+    );
+    const bottomRight = cameraMatrix.transformPoint(
+      new DOMPoint(bounds.maxX, bounds.maxY)
+    );
+
+    // 在屏幕坐标系中找到包含所有点的最小矩形，并对齐到像素
+    const screenMinX = Math.floor(
+      Math.min(topLeft.x, topRight.x, bottomLeft.x, bottomRight.x)
+    );
+    const screenMinY = Math.floor(
+      Math.min(topLeft.y, topRight.y, bottomLeft.y, bottomRight.y)
+    );
+    const screenMaxX = Math.ceil(
+      Math.max(topLeft.x, topRight.x, bottomLeft.x, bottomRight.x)
+    );
+    const screenMaxY = Math.ceil(
+      Math.max(topLeft.y, topRight.y, bottomLeft.y, bottomRight.y)
+    );
+
+    // 转换回世界坐标系
+    const invMatrix = cameraMatrix.inverse();
+    const alignedTopLeft = invMatrix.transformPoint(
+      new DOMPoint(screenMinX, screenMinY)
+    );
+    const alignedBottomRight = invMatrix.transformPoint(
+      new DOMPoint(screenMaxX, screenMaxY)
+    );
+
+    return {
+      minX: alignedTopLeft.x,
+      minY: alignedTopLeft.y,
+      maxX: alignedBottomRight.x,
+      maxY: alignedBottomRight.y,
+    };
+  };
+
   render() {
     if (!this.stage.dirty) return;
     this.stage.dirty = false;
     this.reflow();
     this.ctx.save();
-    this.ctx.setTransform(this.camera.transformMatrix); // 设置相机变换矩阵
 
     // 修复：使用世界坐标系的默认边界
     const defaultWorldBounds = this.camera.getWorldBounds();
     let dirtyBounds = this.dirtyBounds || defaultWorldBounds;
-    dirtyBounds.minX = Math.floor(dirtyBounds.minX);
-    dirtyBounds.minY = Math.floor(dirtyBounds.minY);
-    dirtyBounds.maxX = Math.ceil(dirtyBounds.maxX);
-    dirtyBounds.maxY = Math.ceil(dirtyBounds.maxY);
+
+    // 应用像素对齐
+    const alignedBounds = this.alignBoundsToPixels(
+      dirtyBounds,
+      this.camera.transformMatrix
+    );
+    dirtyBounds.minX = alignedBounds.minX;
+    dirtyBounds.minY = alignedBounds.minY;
+    dirtyBounds.maxX = alignedBounds.maxX;
+    dirtyBounds.maxY = alignedBounds.maxY;
     this.dirtyBounds = dirtyBounds;
+
+    this.ctx.setTransform(this.camera.transformMatrix); // 设置相机变换矩阵
     this.cleanDirtyBounds(dirtyBounds);
     /*
     支持两种渲染方式
