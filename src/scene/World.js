@@ -84,7 +84,6 @@ export class SceneGraph {
     const hitShape = [];
     this.stage.top2Bottom((node) => {
       node.emit(`global:${eventName}`, wrappedEvent);
-      if (this.hitTarget) return;
       if (
         hitCandidateSet.has(node.id) &&
         node.hitTest(wrappedEvent.worldPoint)
@@ -104,7 +103,7 @@ export class SceneGraph {
       hitShape[0]?.emit('pointerenter', wrappedEvent);
     }
     // 更新当前命中目标
-    this.pointerMoveTarget?.emit('pointermove', wrappedEvent);
+    hitShape[0]?.emit('pointermove', wrappedEvent);
     // 更新当前指针移动目标
     this.pointerMoveTarget = hitShape[0];
   };
