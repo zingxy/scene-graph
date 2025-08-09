@@ -99,9 +99,9 @@ export class Camera extends Container {
   }
 
   getRenderCandidateSet() {
-    if (this.cacheCandidateSet) {
-      return this.cacheCandidateSet;
-    }
+    // if (this.cacheCandidateSet) {
+    //   return this.cacheCandidateSet;
+    // }
     const candidates = this.world.rtree.search(this.getWorldBounds());
     const candidateSet = new Set();
     for (const candidate of candidates) {

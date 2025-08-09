@@ -1,7 +1,7 @@
 import EventEmitter from 'eventemitter3';
 import { nanoid } from 'nanoid';
 import Bound from './Bound.js';
-import { noop } from './utils.js';
+import { logger, noop } from './utils.js';
 
 const createReactiveXY = (obj, callback) => {
   return new Proxy(obj, {
@@ -25,12 +25,13 @@ export class DisplayObject extends EventEmitter {
     this.parent = null;
     this.cache = new Map(); // (key: {dirty, value})
     this.dirty = true;
+    this._zIndex = 0; // z-index for rendering order
+    this._rotation = 0; // 以弧度为单位
 
     this.position = createReactiveXY(
       { x: 0, y: 0 },
       this.clearTransformCache.bind(this)
     );
-    this._rotation = 0; // 以弧度为单位
     this.scale = createReactiveXY(
       { x: 1, y: 1 },
       this.clearTransformCache.bind(this)
@@ -40,6 +41,51 @@ export class DisplayObject extends EventEmitter {
       this.clearTransformCache.bind(this)
     );
   }
+  get zIndex() {
+    return this._zIndex;
+  }
+
+  set zIndex(value) {
+    if (this._zIndex !== value) {
+      this._zIndex = value;
+    }
+    // TODO : 触发重新排序
+  }
+  getRenderPath() {
+    if (!this.parent) return [{ zIndex: this.zIndex, childIndex: 0 }];
+
+    // 找到在父容器中的索引位置
+    const childIndex = this.parent.children.indexOf(this);
+    const parentPath = this.parent.getRenderPath();
+
+    return [...parentPath, { zIndex: this.zIndex, childIndex }];
+  }
+  // 修改 compareZIndex 方法
+  compareRenderOrder(other) {
+    // case 1
+    if (this === other) {
+      return 0; // 相同对象，返回相等
+    }
+
+    const thisPath = this.getRenderPath();
+    const otherPath = other.getRenderPath();
+
+    // case 2
+    for (let i = 0; i < Math.min(thisPath.length, otherPath.length); i++) {
+      // 先比较 zIndex
+      if (thisPath[i].zIndex !== otherPath[i].zIndex) {
+        return thisPath[i].zIndex - otherPath[i].zIndex;
+      }
+      // zIndex 相同时比较添加顺序
+      if (thisPath[i].childIndex !== otherPath[i].childIndex) {
+        return thisPath[i].childIndex - otherPath[i].childIndex;
+      }
+    }
+    // case 3
+    logger.warn('Unrechable code in compareRenderOrder');
+    return thisPath.length - otherPath.length;
+  }
+
   get rotation() {
     return this._rotation;
   }
@@ -167,11 +213,21 @@ export class DisplayObject extends EventEmitter {
     }
     return this.getCache('worldBounds', computeFn, dirtyCallback);
   }
+  getAnchors() {
+    const [topLeft, topRight, bottomRight, bottomLeft] =
+      this.getBounds().applyMatrixPoints(this.worldTransformMatrix);
+    return {
+      topLeft,
+      topRight,
+      bottomRight,
+      bottomLeft,
+    };
+  }
 
-  global2Local(point) {
+  worldToLocal(point) {
     return this.worldTransformMatrix.inverse().transformPoint(point);
   }
-  local2Global(point) {
+  localToWorld(point) {
     return this.worldTransformMatrix.transformPoint(point);
   }
 
@@ -222,9 +278,6 @@ export class DisplayObject extends EventEmitter {
       this.markDirty();
       this.waitingDraw = false;
     });
-  }
-  markReflow() {
-    this.needReflow = true;
   }
   markDirty() {
     this.dirty = true;
@@ -372,7 +425,7 @@ export class Rect extends Shape {
   render(ctx) {
     ctx.beginPath();
     ctx.rect(0, 0, this.width, this.height);
-    ctx.stroke();
+    ctx.fill();
     return new Path2D();
   }
 }

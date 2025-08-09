@@ -48,4 +48,14 @@ export default class Bound {
       maxY: Math.max(...ys),
     });
   }
+  applyMatrixPoints(matrix) {
+    const points = [
+      new DOMPoint(this.minX, this.minY),
+      new DOMPoint(this.maxX, this.minY),
+      new DOMPoint(this.maxX, this.maxY),
+      new DOMPoint(this.minX, this.maxY),
+    ];
+    const transformedPoints = points.map((p) => matrix.transformPoint(p));
+    return transformedPoints.map((p) => ({ x: p.x, y: p.y }));
+  }
 }

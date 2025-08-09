@@ -38,11 +38,77 @@ export class SceneGraph {
   }
 
   bindEvents() {
-    // TODO: 实现捕获、冒泡
-    SUPPORTED_EVENTS.forEach((eventName) => {
-      this.bindEvent(eventName);
-    });
+    // // TODO: 实现捕获、冒泡
+    // SUPPORTED_EVENTS.forEach((eventName) => {
+    //   this.bindEvent(eventName);
+    // });
+    this.canvas.addEventListener('pointerdown', this.pointerdown);
+    this.canvas.addEventListener('pointerup', this.pointerup);
+    this.canvas.addEventListener('pointermove', this.pointermove);
   }
+
+  pointerdown = (e) => {
+    const eventName = 'pointerdown';
+    const wrappedEvent = this.wrapEvent(e);
+    const hitCandidateSet = this.getHitCandidates(wrappedEvent);
+    logger.info('Hit Candidates:', hitCandidateSet.size);
+
+    const hitShape = [];
+    this.stage.top2Bottom((node) => {
+      node.emit(`global:${eventName}`, wrappedEvent);
+      if (
+        hitCandidateSet.has(node.id) &&
+        node.hitTest(wrappedEvent.worldPoint)
+      ) {
+        hitShape.push(node);
+      }
+    });
+    if (hitShape.length === 0) return;
+    hitShape.sort((a, b) => b.compareRenderOrder(a));
+    this.hitTarget = hitShape[0];
+    this.hitTarget.emit('pointerdown', wrappedEvent);
+  };
+  pointerup = (e) => {
+    const eventName = 'pointerup';
+    const wrappedEvent = this.wrapEvent(e);
+    this.stage.top2Bottom((node) => {
+      node.emit(`global:${eventName}`, wrappedEvent);
+    });
+    this.hitTarget?.emit('pointerup', wrappedEvent);
+    this.hitTarget = null; // 清除命中目标
+  };
+  pointermove = (e) => {
+    const eventName = 'pointermove';
+    const wrappedEvent = this.wrapEvent(e);
+    const hitCandidateSet = this.getHitCandidates(wrappedEvent);
+    const hitShape = [];
+    this.stage.top2Bottom((node) => {
+      node.emit(`global:${eventName}`, wrappedEvent);
+      if (this.hitTarget) return;
+      if (
+        hitCandidateSet.has(node.id) &&
+        node.hitTest(wrappedEvent.worldPoint)
+      ) {
+        hitShape.push(node);
+      }
+    });
+    hitShape.sort((a, b) => b.compareRenderOrder(a));
+    if (this.pointerMoveTarget) {
+      // 如果之前有命中目标，先触发离开事件
+      if (this.pointerMoveTarget !== hitShape[0]) {
+        this.pointerMoveTarget.emit('pointerleave', wrappedEvent);
+      }
+    }
+    // 触发进入事件
+    if (this.pointerMoveTarget !== hitShape[0]) {
+      hitShape[0]?.emit('pointerenter', wrappedEvent);
+    }
+    // 更新当前命中目标
+    this.pointerMoveTarget?.emit('pointermove', wrappedEvent);
+    // 更新当前指针移动目标
+    this.pointerMoveTarget = hitShape[0];
+  };
+
   getHitCandidates(wrappedEvent) {
     let candidates = this.rtree.search({
       minX: wrappedEvent.worldPoint.x,
@@ -122,6 +188,28 @@ export class SceneGraph {
       this.renderBounds(child);
     }
   }
+  renderAnchors(root) {
+    if (!root) return;
+    // base case
+    if (root instanceof Shape) {
+      const { topLeft, topRight, bottomRight, bottomLeft } = root.getAnchors();
+      this.ctx.save();
+      this.ctx.fillStyle = 'red';
+      this.ctx.beginPath();
+      for (const anchor of [topLeft, topRight, bottomRight, bottomLeft]) {
+        this.ctx.beginPath();
+        this.ctx.arc(anchor.x, anchor.y, 2, 0, Math.PI * 2);
+        this.ctx.fill();
+      }
+      this.ctx.restore();
+
+      return;
+    }
+
+    for (const child of root.children) {
+      this.renderAnchors(child);
+    }
+  }
 
   renderSceneGraphWithTransform(root) {
     const candidateSet = this.camera.getRenderCandidateSet(); // 确保相机的候选集是最新的
@@ -163,6 +251,7 @@ export class SceneGraph {
         const { a, b, c, d, e, f } = node.transformMatrix;
         this.ctx.save();
         this.ctx.transform(a, b, c, d, e, f);
+        drawCoordinateSystem(this.ctx);
         dfs(child);
         this.ctx.restore();
       }
@@ -345,7 +434,6 @@ export class SceneGraph {
       maxY: alignedBottomRight.y,
     };
   };
-
   render() {
     if (!this.stage.dirty) return;
     this.stage.dirty = false;
@@ -381,6 +469,7 @@ export class SceneGraph {
 
     this.renderSceneGraphWithTransform(this.stage);
     this.ctx.restore();
+    // this.renderAnchors(this.stage);
     // this.renderSceneGraphWithWorldTransform(this.stage);
     // this.renderBounds(this.stage);
     // this.renderRTree();
