@@ -19,7 +19,7 @@ class Minimap {
   }
   update() {
     this.cameraRect.transformMatrix =
-      this.mainWorld.camera.transformMatrix.inverse();
+      this.mainWorld.camera.transformMatrix.invert();
     requestAnimationFrame(() => {
       this.update();
     });

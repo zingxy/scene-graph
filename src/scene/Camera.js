@@ -1,5 +1,6 @@
 import Bound from './Bound.js';
 import { Container, DisplayObject } from './DisplayObject.js';
+import { Matrix } from 'pixi.js';
 
 /**
  * Camera也是World的下的一个Local坐标系
@@ -11,12 +12,12 @@ export class Camera extends Container {
   constructor(world) {
     super();
     this.world = world;
-    // camera matrix的逆矩阵, camera matrix = this.transformMatrix.inverse()
-    this.transformMatrix = new DOMMatrix();
+    // camera matrix的逆矩阵, camera matrix = this.transformMatrix.invert()
+    this.transformMatrix = new Matrix();
     const dpr = window.devicePixelRatio || 1;
     // viewportMatrix用于将viewport坐标转换为camera space坐标; CSS像素到物理像素的转换
     // p_camera = viewportMatrix * p_viewport
-    this.viewportMatrix = new DOMMatrix().scale(dpr, dpr);
+    this.viewportMatrix = new Matrix().scale(dpr, dpr);
     this.disabled = false;
     this.parent = world.stage; // Camera的父容器是World的stage
     this.bindEvents();
@@ -32,7 +33,7 @@ export class Camera extends Container {
       minY: 0,
       maxX: this.world.canvas.width,
       maxY: this.world.canvas.height,
-    }).applyMatrix(this.transformMatrix.inverse());
+    }).applyMatrix(this.transformMatrix.invert());
   }
   bindEvents() {
     const canvas = this.world.canvas;
@@ -62,11 +63,11 @@ export class Camera extends Container {
         dragStart.y = e.offsetY;
         const viewportX = offsetX;
         const viewportY = offsetY;
-        const cameraPoint = this.viewportMatrix.transformPoint(
+        const cameraPoint = this.viewportMatrix.apply(
           new DOMPoint(viewportX, viewportY)
         );
-        const T = new DOMMatrix([1, 0, 0, 1, cameraPoint.x, cameraPoint.y]);
-        this.transformMatrix = T.multiply(this.transformMatrix);
+        const T = new Matrix(1, 0, 0, 1, cameraPoint.x, cameraPoint.y);
+        this.transformMatrix = T.append(this.transformMatrix);
       }
     });
     canvas.addEventListener(
@@ -84,15 +85,15 @@ export class Camera extends Container {
         }
         const viewportX = e.offsetX;
         const viewportY = e.offsetY;
-        const cameraPoint = this.viewportMatrix.transformPoint(
+        const cameraPoint = this.viewportMatrix.apply(
           new DOMPoint(viewportX, viewportY)
         );
-        const T = new DOMMatrix([1, 0, 0, 1, -cameraPoint.x, -cameraPoint.y]);
-        const S = new DOMMatrix([scale, 0, 0, scale, 0, 0]);
-        const T2 = new DOMMatrix([1, 0, 0, 1, cameraPoint.x, cameraPoint.y]);
+        const T = new Matrix(1, 0, 0, 1, -cameraPoint.x, -cameraPoint.y);
+        const S = new Matrix(scale, 0, 0, scale, 0, 0);
+        const T2 = new Matrix(1, 0, 0, 1, cameraPoint.x, cameraPoint.y);
 
         const ctm = this.transformMatrix;
-        this.transformMatrix = T2.multiply(S).multiply(T).multiply(ctm);
+        this.transformMatrix = T2.append(S).append(T).append(ctm);
       },
       { passive: false }
     );
@@ -119,10 +120,10 @@ export class Camera extends Container {
    */
   viewportToWorld(viewportX, viewportY) {
     // transformMatrix 在物理像素空间操作，需要先转换CSS像素到物理像素
-    const cameraPoint = this.viewportMatrix.transformPoint(
+    const cameraPoint = this.viewportMatrix.apply(
       new DOMPoint(viewportX, viewportY)
     );
-    return this.transformMatrix.inverse().transformPoint(cameraPoint);
+    return this.transformMatrix.invert().apply(cameraPoint);
   }
 
   /**
@@ -133,9 +134,9 @@ export class Camera extends Container {
    */
   worldToViewport(worldX, worldY) {
     const worldPoint = new DOMPoint(worldX, worldY);
-    const cameraPoint = this.transformMatrix.transformPoint(worldPoint);
+    const cameraPoint = this.transformMatrix.apply(worldPoint);
     return this.viewportMatrix
-      .inverse()
-      .transformPoint(new DOMPoint(cameraPoint.x, cameraPoint.y));
+      .invert()
+      .apply(new DOMPoint(cameraPoint.x, cameraPoint.y));
   }
 }

@@ -38,7 +38,7 @@ export default class Bound {
       new DOMPoint(this.maxX, this.maxY),
       new DOMPoint(this.minX, this.maxY),
     ];
-    const transformedPoints = points.map((p) => matrix.transformPoint(p));
+    const transformedPoints = points.map((p) => matrix.apply(p));
     const xs = transformedPoints.map((p) => p.x);
     const ys = transformedPoints.map((p) => p.y);
     return new Bound({
@@ -55,7 +55,9 @@ export default class Bound {
       new DOMPoint(this.maxX, this.maxY),
       new DOMPoint(this.minX, this.maxY),
     ];
-    const transformedPoints = points.map((p) => matrix.transformPoint(p));
-    return transformedPoints.map((p) => ({ x: p.x, y: p.y }));
+    const transformedPoints = points.map((p) => matrix.apply(p));
+    return transformedPoints
+      .map((p) => ({ x: p.x, y: p.y }))
+      .sort((a, b) => a.x - b.x || a.y - b.y);
   }
 }

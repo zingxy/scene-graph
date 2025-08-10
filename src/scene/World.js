@@ -24,9 +24,7 @@ export class SceneGraph {
 
   worldToStage(worldX, worldY) {
     const worldPoint = new DOMPoint(worldX, worldY);
-    const stagePoint = this.stage.transformMatrix
-      .inverse()
-      .transformPoint(worldPoint);
+    const stagePoint = this.stage.transformMatrix.invert().apply(worldPoint);
     return stagePoint;
   }
 
@@ -236,7 +234,7 @@ export class SceneGraph {
           candidateSet.has(node.id) &&
           (this.forceupdate || dirtyCandidateSet.has(node.id))
         ) {
-          const { a, b, c, d, e, f } = node.transformMatrix;
+          const { a, b, c, d, tx: e, ty: f } = node.transformMatrix;
           count++;
           this.ctx.save();
           this.ctx.transform(a, b, c, d, e, f);
@@ -247,7 +245,7 @@ export class SceneGraph {
       }
       // make progress
       for (const child of node.children) {
-        const { a, b, c, d, e, f } = node.transformMatrix;
+        const { a, b, c, d, tx: e, ty: f } = node.transformMatrix;
         this.ctx.save();
         this.ctx.transform(a, b, c, d, e, f);
         drawCoordinateSystem(this.ctx);
@@ -390,16 +388,12 @@ export class SceneGraph {
   // 正确的像素对齐实现：考虑完整的相机变换矩阵
   alignBoundsToPixels = (bounds, cameraMatrix) => {
     // 将世界坐标的四个角转换到屏幕坐标
-    const topLeft = cameraMatrix.transformPoint(
-      new DOMPoint(bounds.minX, bounds.minY)
-    );
-    const topRight = cameraMatrix.transformPoint(
-      new DOMPoint(bounds.maxX, bounds.minY)
-    );
-    const bottomLeft = cameraMatrix.transformPoint(
+    const topLeft = cameraMatrix.apply(new DOMPoint(bounds.minX, bounds.minY));
+    const topRight = cameraMatrix.apply(new DOMPoint(bounds.maxX, bounds.minY));
+    const bottomLeft = cameraMatrix.apply(
       new DOMPoint(bounds.minX, bounds.maxY)
     );
-    const bottomRight = cameraMatrix.transformPoint(
+    const bottomRight = cameraMatrix.apply(
       new DOMPoint(bounds.maxX, bounds.maxY)
     );
 
@@ -418,11 +412,11 @@ export class SceneGraph {
     );
 
     // 转换回世界坐标系
-    const invMatrix = cameraMatrix.inverse();
-    const alignedTopLeft = invMatrix.transformPoint(
+    const invMatrix = cameraMatrix.invert();
+    const alignedTopLeft = invMatrix.apply(
       new DOMPoint(screenMinX, screenMinY)
     );
-    const alignedBottomRight = invMatrix.transformPoint(
+    const alignedBottomRight = invMatrix.apply(
       new DOMPoint(screenMaxX, screenMaxY)
     );
 
@@ -454,7 +448,8 @@ export class SceneGraph {
     dirtyBounds.maxY = alignedBounds.maxY;
     this.dirtyBounds = dirtyBounds;
 
-    this.ctx.setTransform(this.camera.transformMatrix); // 设置相机变换矩阵
+    const { a, b, c, d, tx: e, ty: f } = this.camera.transformMatrix;
+    this.ctx.setTransform(a, b, c, d, e, f); // 设置
     this.cleanDirtyBounds(dirtyBounds);
     /*
     支持两种渲染方式
@@ -469,7 +464,6 @@ export class SceneGraph {
     this.renderSceneGraphWithTransform(this.stage);
     this.ctx.restore();
     // this.renderAnchors(this.stage);
-    // this.renderSceneGraphWithWorldTransform(this.stage);
     // this.renderBounds(this.stage);
     // this.renderRTree();
   }

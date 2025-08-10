@@ -2,6 +2,7 @@ import EventEmitter from 'eventemitter3';
 import { nanoid } from 'nanoid';
 import Bound from './Bound.js';
 import { logger, noop } from './utils.js';
+import { Transform } from 'pixi.js';
 
 const createReactiveXY = (obj, callback) => {
   return new Proxy(obj, {
@@ -26,21 +27,70 @@ export class DisplayObject extends EventEmitter {
     this.cache = new Map(); // (key: {dirty, value})
     this.dirty = true;
     this._zIndex = 0; // z-index for rendering order
-    this._rotation = 0; // 以弧度为单位
-
-    this.position = createReactiveXY(
-      { x: 0, y: 0 },
-      this.clearTransformCache.bind(this)
-    );
-    this.scale = createReactiveXY(
-      { x: 1, y: 1 },
-      this.clearTransformCache.bind(this)
-    );
-    this.skew = createReactiveXY(
-      { x: 0, y: 0 },
-      this.clearTransformCache.bind(this)
-    );
+    this.transform = new Transform({ observer: this });
   }
+  _onUpdate() {
+    this.clearTransformCache();
+  }
+
+  get x() {
+    return this.transform.position.x;
+  }
+  set x(value) {
+    this.transform.position.x = value;
+  }
+  get y() {
+    return this.transform.position.y;
+  }
+  set y(value) {
+    this.transform.position.y = value;
+  }
+  get scaleX() {
+    return this.transform.scale.x;
+  }
+  set scaleX(value) {
+    this.transform.scale.x = value;
+  }
+  get scaleY() {
+    return this.transform.scale.y;
+  }
+  set scaleY(value) {
+    this.transform.scale.y = value;
+  }
+  get scale() {
+    return this.transform.scale;
+  }
+  set scale(value) {
+    this.transform.scale.set(value.x, value.y); // Assuming value is an object with x and y properties
+  }
+
+  get rotation() {
+    return this.transform.rotation;
+  }
+  set rotation(value) {
+    this.transform.rotation = value;
+  }
+
+  get skew() {
+    return this.transform.skew;
+  }
+  set skew(value) {
+    this.transform.skew.set(value.x, value.y); // Assuming value is an object with x and y properties
+  }
+
+  get skewX() {
+    return this.transform.skew.x;
+  }
+  set skewX(value) {
+    this.transform.skew.x = value;
+  }
+  get skewY() {
+    return this.transform.skew.y;
+  }
+  set skewY(value) {
+    this.transform.skew.y = value;
+  }
+
   get zIndex() {
     return this._zIndex;
   }
@@ -86,14 +136,6 @@ export class DisplayObject extends EventEmitter {
     return thisPath.length - otherPath.length;
   }
 
-  get rotation() {
-    return this._rotation;
-  }
-  set rotation(value) {
-    this._rotation = value;
-    this.clearTransformCache();
-  }
-
   cacheValidate(key, dirtyCallback = noop) {
     if (this.cache.has(key)) {
       const { dirty, value } = this.cache.get(key);
@@ -122,69 +164,21 @@ export class DisplayObject extends EventEmitter {
   }
 
   get transformMatrix() {
-    const matrix = new DOMMatrix();
-    matrix.translateSelf(this.position.x, this.position.y);
-    matrix.rotateSelf(this.rotation * (180 / Math.PI)); // 转换为度
-    matrix.skewXSelf(this.skew.x);
-    matrix.skewYSelf(this.skew.y);
-    matrix.scaleSelf(this.scale.x, this.scale.y);
-    return matrix;
-  }
-  decompose(matrix) {
-    const { a, b, c, d, e, f } = matrix;
-
-    const delta = a * d - b * c;
-
-    const result = {
-      x: e,
-      y: f,
-      rotation: 0,
-      scaleX: 0,
-      scaleY: 0,
-      skewX: 0,
-      skewY: 0,
-    };
-
-    // Apply the QR-like decomposition.
-    if (a != 0 || b != 0) {
-      const r = Math.sqrt(a * a + b * b);
-      result.rotation = b > 0 ? Math.acos(a / r) : -Math.acos(a / r);
-      result.scaleX = r;
-      result.scaleY = delta / r;
-      result.skewX = (a * c + b * d) / delta;
-      result.skewY = 0;
-    } else if (c != 0 || d != 0) {
-      const s = Math.sqrt(c * c + d * d);
-      result.rotation =
-        Math.PI / 2 - (d > 0 ? Math.acos(-c / s) : -Math.acos(c / s));
-      result.scaleX = delta / s;
-      result.scaleY = s;
-      result.skewX = 0;
-      result.skewY = (a * c + b * d) / delta;
-    } else {
-      // a = b = c = d = 0
-    }
-    this.position.x = result.x;
-    this.position.y = result.y;
-    this.rotation = result.rotation;
-    this.scale.x = result.scaleX;
-    this.scale.y = result.scaleY;
-    this.skew.x = result.skewX;
-    this.skew.y = result.skewY;
+    return this.transform.matrix.clone();
   }
   set transformMatrix(matrix) {
     this.batchTransformUpdate(() => {
-      this.decompose(matrix);
+      this.transform.setFromMatrix(matrix);
     });
   }
 
   get worldTransformMatrix() {
     const computeFn = () => {
       return this.parent
-        ? this.parent.worldTransformMatrix.multiply(this.transformMatrix)
+        ? this.parent.worldTransformMatrix.clone().append(this.transformMatrix)
         : this.transformMatrix;
     };
-    return this.getCache('worldTransformMatrix', computeFn);
+    return this.getCache('worldTransformMatrix', computeFn).clone();
   }
   hitTest() {
     return false;
@@ -214,21 +208,14 @@ export class DisplayObject extends EventEmitter {
     return this.getCache('worldBounds', computeFn, dirtyCallback);
   }
   getAnchors() {
-    const [topLeft, topRight, bottomRight, bottomLeft] =
-      this.getBounds().applyMatrixPoints(this.worldTransformMatrix);
-    return {
-      topLeft,
-      topRight,
-      bottomRight,
-      bottomLeft,
-    };
+    return this.getBounds().applyMatrixPoints(this.worldTransformMatrix);
   }
 
   worldToLocal(point) {
-    return this.worldTransformMatrix.inverse().transformPoint(point);
+    return this.worldTransformMatrix.invert().apply(point);
   }
   localToWorld(point) {
-    return this.worldTransformMatrix.transformPoint(point);
+    return this.worldTransformMatrix.apply(point);
   }
 
   clearTransformCache() {
@@ -373,8 +360,8 @@ export class Circle extends Shape {
   hitTest(point) {
     const { x, y } = point;
     const { x: localX, y: localY } = this.worldTransformMatrix
-      .inverse()
-      .transformPoint(new DOMPoint(x, y));
+      .invert()
+      .apply(new DOMPoint(x, y));
     return localX * localX + localY * localY <= this.radius * this.radius;
   }
 
@@ -404,8 +391,8 @@ export class Rect extends Shape {
   hitTest(point) {
     const { x, y } = point;
     const { x: localX, y: localY } = this.worldTransformMatrix
-      .inverse()
-      .transformPoint(new DOMPoint(x, y));
+      .invert()
+      .apply(new DOMPoint(x, y));
     const bounds = this.getBounds();
     return (
       localX >= bounds.minX &&
@@ -424,6 +411,7 @@ export class Rect extends Shape {
   }
   render(ctx) {
     ctx.beginPath();
+    ctx.globalAlpha = 0.5
     ctx.rect(0, 0, this.width, this.height);
     ctx.fill();
     return new Path2D();
