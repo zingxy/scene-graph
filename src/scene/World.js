@@ -3,7 +3,7 @@ import { Camera } from './Camera.js';
 import { Container, Shape } from './DisplayObject.js';
 import { drawCoordinateSystem, logger } from './utils.js';
 import RBush from 'rbush';
-const SUPPORTED_EVENTS = ['click', 'mousemove', 'mousedown', 'mouseup'];
+import SelectBox from './selectedBox.js';
 
 export class SceneGraph {
   constructor(canvas) {
@@ -12,6 +12,8 @@ export class SceneGraph {
     this.ctx = canvas.getContext('2d');
     this.stage = new Container();
     this.camera = new Camera(this);
+    this.selectTool = new SelectBox(this);
+    this.stage.addChild(this.selectTool);
     this.rtree = new RBush();
     this.init();
     this.dirtyBounds = null;

@@ -1,6 +1,6 @@
 import './style.css';
 import { SceneGraph } from './scene/World.js';
-import { Circle, Rect, Container } from './scene/DisplayObject.js';
+import { Circle, Rect, Container, Shape } from './scene/DisplayObject.js';
 import { getRandomColor, logger, addDragBehavior } from './scene/utils.js';
 import { Ticker } from './scene/Ticker.js';
 import Transformer from './scene/Transformer.js';
@@ -12,34 +12,40 @@ const world = new SceneGraph(canvas);
 // 创建 Ticker 实例，设置目标帧率为 60 FPS
 const ticker = new Ticker(60);
 const transformer = new Transformer();
-const mainCircle = new Circle(100, 200);
-mainCircle.rotation = Math.PI / 4; // 设置倾斜角度
-mainCircle.on('pointerdown', (event) => {
-  transformer.addShape(mainCircle);
+
+world.selectTool.on('selection:changed', (selectBox) => {
+  logger.info('Selection changed:', selectBox);
+  transformer.shapes = [];
+  const selectedShapes = world.rtree.search({
+    minX: selectBox.x,
+    minY: selectBox.y,
+    maxX: selectBox.x + selectBox.width,
+    maxY: selectBox.y + selectBox.height,
+  });
+  const selectedIds = selectedShapes.map((shape) => shape.id);
+  world.stage.top2Bottom((node) => {
+    if (
+      node instanceof Shape &&
+      selectedIds.includes(node.id) &&
+      node !== selectBox
+    ) {
+      transformer.addShape(node);
+    }
+  });
 });
 
-// 为每个圆形添加拖拽功能的函数
-
-// 为主圆形添加拖拽行为
-addDragBehavior(mainCircle);
-
 Array.from({ length: 10 }).forEach((_, i) => {
-  const smallCircle = Math.random() < 0.5 ? new Circle(50) : new Rect(30, 50);
+  const smallCircle = Math.random() < 0.5 ? new Circle(50) : new Rect(30, 80);
   smallCircle.fill = getRandomColor();
   smallCircle.x = Math.random() * canvas.width;
   smallCircle.y = Math.random() * canvas.height;
 
   // 为每个小圆形添加拖拽行为
-  addDragBehavior(smallCircle);
+  // addDragBehavior(smallCircle);
 
   world.stage.addChild(smallCircle);
 });
 
-const container = new Container();
-container.addChild(mainCircle);
-container.x = 500;
-container.y = 500;
-world.stage.addChild(container);
 transformer.zIndex = 100;
 world.stage.addChild(transformer);
 
@@ -52,5 +58,4 @@ ticker.add((deltaTime, currentTime) => {
 ticker.start();
 
 window.world = world;
-window.mainCircle = mainCircle;
 window.ticker = ticker;

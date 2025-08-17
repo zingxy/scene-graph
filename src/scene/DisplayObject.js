@@ -315,6 +315,14 @@ export class Container extends DisplayObject {
     child.clearTransformCache(); // 清空子节点的变换缓存
     return child;
   }
+  removeAllChildren() {
+    this.children.forEach((child) => {
+      child.parent = null;
+    });
+    // TODO 从Rtree中移除
+    this.clearTransformCache();
+    this.children = [];
+  }
 
   getBounds() {
     if (this.children.length === 0) {
@@ -385,9 +393,28 @@ export class Circle extends Shape {
 export class Rect extends Shape {
   constructor(width, height) {
     super();
-    this.width = width;
-    this.height = height;
+    this._width = width;
+    this._height = height;
   }
+
+  get width() {
+    return this._width;
+  }
+
+  get height() {
+    return this._height;
+  }
+
+  set width(value) {
+    this._width = value;
+    this.clearTransformCache();
+  }
+
+  set height(value) {
+    this._height = value;
+    this.clearTransformCache();
+  }
+
   hitTest(point) {
     const { x, y } = point;
     const { x: localX, y: localY } = this.worldTransformMatrix
@@ -405,14 +432,14 @@ export class Rect extends Shape {
     return new Bound({
       minX: 0,
       minY: 0,
-      maxX: this.width,
-      maxY: this.height,
+      maxX: this._width,
+      maxY: this._height,
     });
   }
   render(ctx) {
     ctx.beginPath();
-    ctx.globalAlpha = 0.5
-    ctx.rect(0, 0, this.width, this.height);
+    ctx.globalAlpha = 0.5;
+    ctx.rect(0, 0, this._width, this._height);
     ctx.fill();
     return new Path2D();
   }
