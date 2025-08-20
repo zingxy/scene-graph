@@ -1,5 +1,5 @@
 import { Container, Circle, Rect } from './DisplayObject';
-import { Matrix } from 'pixi.js';
+import { Matrix, Transform } from 'pixi.js';
 
 export default class Transformer extends Container {
   shapes = [];
@@ -20,25 +20,43 @@ export default class Transformer extends Container {
   }
 
   getAnchors() {
+    let r =
+      this.shapes.length === 1
+        ? this.shapes[0].worldTransformMatrix.decompose(new Transform())
+            .rotation
+        : 0;
+    const tr = new Matrix().rotate(-r);
     let points = [];
     this.shapes.forEach((shape) => {
       const bounds = shape.getAnchors();
-      points.push(bounds[0], bounds[1], bounds[2], bounds[3]);
+      points.push(
+        tr.apply(bounds[0]),
+        tr.apply(bounds[1]),
+        tr.apply(bounds[2]),
+        tr.apply(bounds[3])
+      );
     });
     let minX = Math.min(...points.map((p) => p.x));
     let minY = Math.min(...points.map((p) => p.y));
     let maxX = Math.max(...points.map((p) => p.x));
     let maxY = Math.max(...points.map((p) => p.y));
-    return { minX, minY, maxX, maxY };
+    tr.invert();
+    const p = tr.apply({ x: minX, y: minY });
+
+    return {
+      x: p.x,
+      y: p.y,
+      width: maxX - minX,
+      height: maxY - minY,
+      rotation: r,
+    };
   }
   prepare() {
-    const worldBounds = this.getAnchors();
-    const worldCoverShape = new Rect(
-      worldBounds.maxX - worldBounds.minX,
-      worldBounds.maxY - worldBounds.minY
-    );
-    worldCoverShape.x = worldBounds.minX;
-    worldCoverShape.y = worldBounds.minY;
+    const { x, y, width, height, rotation } = this.getAnchors();
+    const worldCoverShape = new Rect(width, height);
+    worldCoverShape.x = x;
+    worldCoverShape.y = y;
+    worldCoverShape.rotation = rotation;
     this.worldCoverShape = worldCoverShape;
 
     this.addChild(worldCoverShape);
@@ -83,9 +101,8 @@ export default class Transformer extends Container {
       this.children.forEach((child) => {
         child.transformMatrix = T.clone().append(child.transformMatrix);
       });
-      this.updateRotateAnchor();
-      this.updateZoomAnchors();
       lastPosition = event.worldPoint;
+      this.updateAnchorPosition();
     });
 
     worldCoverShape.on('pointerup', (event) => {
@@ -95,25 +112,28 @@ export default class Transformer extends Container {
   }
 
   addZoomBehavior() {
-    const worldBounds = this.getAnchors();
+    const anchorsName = ['topLeft', 'topRight', 'bottomRight', 'bottomLeft'];
+    const anchorPoints = this.worldCoverShape.getAnchors().sort((a, b) => {
+      a.x - b.x || a.y - b.y;
+    });
     const topLeftPoint = {
-      x: worldBounds.minX,
-      y: worldBounds.minY,
+      x: anchorPoints[0].x,
+      y: anchorPoints[0].y,
       name: 'topLeft',
     };
     const topRightPoint = {
-      x: worldBounds.maxX,
-      y: worldBounds.minY,
+      x: anchorPoints[1].x,
+      y: anchorPoints[1].y,
       name: 'topRight',
     };
     const bottomRightPoint = {
-      x: worldBounds.maxX,
-      y: worldBounds.maxY,
+      x: anchorPoints[2].x,
+      y: anchorPoints[2].y,
       name: 'bottomRight',
     };
     const bottomLeftPoint = {
-      x: worldBounds.minX,
-      y: worldBounds.maxY,
+      x: anchorPoints[3].x,
+      y: anchorPoints[3].y,
       name: 'bottomLeft',
     };
 
@@ -191,16 +211,7 @@ export default class Transformer extends Container {
     const rotator = new Circle(10);
     rotator.name = 'rotationAnchor';
     this.addChild(rotator);
-
-    const worldBounds = this.getAnchors();
-
-    const topLeftPoint = { x: worldBounds.minX, y: worldBounds.minY };
-    const topRightPoint = { x: worldBounds.maxX, y: worldBounds.minY };
-    const bottomRightPoint = { x: worldBounds.maxX, y: worldBounds.maxY };
-    const bottomLeftPoint = { x: worldBounds.minX, y: worldBounds.maxY };
-
-    rotator.x = (topLeftPoint.x + topRightPoint.x) / 2;
-    rotator.y = (topLeftPoint.y + topRightPoint.y) / 2;
+    this.updateRotateAnchor();
 
     let isDragging = false;
     let lastPosition = { x: 0, y: 0 };
@@ -212,15 +223,10 @@ export default class Transformer extends Container {
 
     rotator.on('global:pointermove', (event) => {
       if (!isDragging) return;
-
-      const worldBounds = this.getAnchors();
-      const topLeftPoint = { x: worldBounds.minX, y: worldBounds.minY };
-      const bottomRightPoint = { x: worldBounds.maxX, y: worldBounds.maxY };
-
-      const rotateCenterPoint = {
-        x: (topLeftPoint.x + bottomRightPoint.x) / 2,
-        y: (topLeftPoint.y + bottomRightPoint.y) / 2,
-      };
+      const rotateCenterPoint = this.worldCoverShape.localToWorld({
+        x: this.worldCoverShape._width / 2,
+        y: this.worldCoverShape._height / 2,
+      });
 
       // 计算从旋转中心到上一个位置的向量
       const lastVector = {
