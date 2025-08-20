@@ -210,7 +210,7 @@ export function addDragBehavior(circle) {
 }
 
 export function decompose(matrix) {
-  const { a, b, c, d, e, f } = matrix;
+  const { a, b, c, d, tx: e, ty: f } = matrix;
 
   const delta = a * d - b * c;
 

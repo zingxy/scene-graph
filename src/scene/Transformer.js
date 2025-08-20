@@ -20,11 +20,18 @@ export default class Transformer extends Container {
   }
 
   getAnchors() {
-    let r =
-      this.shapes.length === 1
-        ? this.shapes[0].worldTransformMatrix.decompose(new Transform())
-            .rotation
-        : 0;
+    /*
+    pixi的decompose会将矩阵分解为纯skew或者纯rotaion
+    konva的不会，这里使用konva的
+    */
+    let decomposed = this.shapes[0].worldTransformMatrix.decompose(
+      new Transform()
+    );
+    console.log('@pixi', decomposed)
+    decomposed = decompose(this.shapes[0].worldTransformMatrix);
+    console.log('@konva', decomposed);
+
+    let r = this.shapes.length === 1 ? decomposed.rotation : 0;
     const tr = new Matrix().rotate(-r);
     let points = [];
     this.shapes.forEach((shape) => {
