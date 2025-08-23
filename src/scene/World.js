@@ -4,6 +4,7 @@ import { Container, Shape } from './DisplayObject.js';
 import { drawCoordinateSystem, logger } from './utils.js';
 import RBush from 'rbush';
 import SelectBox from './selectedBox.js';
+import Grid from './Grid.js';
 
 export class SceneGraph {
   constructor(canvas) {
@@ -15,6 +16,7 @@ export class SceneGraph {
     this.selectTool = new SelectBox(this);
     this.stage.addChild(this.selectTool);
     this.rtree = new RBush();
+    this.grid = new Grid(this);
     this.init();
     this.dirtyBounds = null;
   }
@@ -464,6 +466,7 @@ export class SceneGraph {
     */
 
     this.renderSceneGraphWithTransform(this.stage);
+    this.grid.renderGrid(this.ctx);
     this.ctx.restore();
     // this.renderAnchors(this.stage);
     // this.renderBounds(this.stage);
