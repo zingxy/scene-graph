@@ -27,7 +27,7 @@ export default class Transformer extends Container {
     let decomposed = this.shapes[0].worldTransformMatrix.decompose(
       new Transform()
     );
-    console.log('@pixi', decomposed)
+    console.log('@pixi', decomposed);
     decomposed = decompose(this.shapes[0].worldTransformMatrix);
     console.log('@konva', decomposed);
 

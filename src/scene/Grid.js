@@ -2,6 +2,29 @@
 class Grid {
   constructor(world) {
     this.world = world;
+    this.gridSize = 50;
+    this.snapTolerance = 5;
+  }
+
+  getNearestPoint(point) {
+    const gridSize = this.gridSize;
+    return {
+      x: Math.round(point.x / gridSize) * gridSize,
+      y: Math.round(point.y / gridSize) * gridSize,
+    };
+  }
+
+  snapToGrid(point) {
+    const nearest = this.getNearestPoint(point);
+    const dx = point.x - nearest.x;
+    const dy = point.y - nearest.y;
+    if (
+      Math.abs(dx) < this.snapTolerance &&
+      Math.abs(dy) < this.snapTolerance
+    ) {
+      return nearest;
+    }
+    return point;
   }
 
   renderGrid(ctx) {
@@ -9,9 +32,9 @@ class Grid {
     ctx.strokeStyle = 'rgba(0, 0, 0, 0.1)';
     ctx.lineWidth = 1;
     {
-      let start = minX - (minX % 50);
-      let end = maxX + (50 - (maxX % 50));
-      for (let x = start; x <= end; x += 50) {
+      let start = minX - (minX % this.gridSize);
+      let end = maxX + (this.gridSize - (maxX % this.gridSize));
+      for (let x = start; x <= end; x += this.gridSize) {
         ctx.beginPath();
         ctx.moveTo(x, minY);
         ctx.lineTo(x, maxY);
@@ -19,9 +42,9 @@ class Grid {
       }
     }
     {
-      let start = minY - (minY % 50);
-      let end = maxY + (50 - (maxY % 50));
-      for (let y = start; y <= end; y += 50) {
+      let start = minY - (minY % this.gridSize);
+      let end = maxY + (this.gridSize - (maxY % this.gridSize));
+      for (let y = start; y <= end; y += this.gridSize) {
         ctx.beginPath();
         ctx.moveTo(minX, y);
         ctx.lineTo(maxX, y);

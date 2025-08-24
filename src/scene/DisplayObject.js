@@ -315,6 +315,13 @@ export class Container extends DisplayObject {
     child.clearTransformCache(); // 清空子节点的变换缓存
     return child;
   }
+
+  removeChild(child) {
+    this.children = this.children.filter((c) => c !== child);
+    this.clearTransformCache(); // 清空节点的变换缓存
+    child.parent = null;
+    child.clearTransformCache(); // 清空子节点的变换缓存
+  }
   removeAllChildren() {
     this.children.forEach((child) => {
       child.parent = null;
