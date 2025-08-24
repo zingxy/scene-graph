@@ -3,9 +3,10 @@ import { Matrix, Transform } from 'pixi.js';
 
 export default class Transformer extends Container {
   shapes = [];
-  constructor() {
+  constructor(world) {
     super();
     this.name = 'Transformer';
+    this.world = world;
   }
 
   addShape(shape) {
@@ -102,12 +103,18 @@ export default class Transformer extends Container {
       const dy =
         worldCoverShape.parent.worldToLocal(event.worldPoint).y -
         worldCoverShape.parent.worldToLocal(lastPosition).y;
-      const T = new Matrix().translate(dx, dy);
+
+      // 计算网格对齐偏移量
+      const offset = this.computeSnapOffset(new Matrix().translate(dx, dy));
+
+      // 应用移动变换和网格对齐偏移
+      const T = new Matrix().translate(dx + offset.dx, dy + offset.dy);
 
       this.applyChangeToAllShape(T);
       this.children.forEach((child) => {
         child.transformMatrix = T.clone().append(child.transformMatrix);
       });
+
       lastPosition = event.worldPoint;
       this.updateAnchorPosition();
     });
@@ -333,5 +340,26 @@ export default class Transformer extends Container {
   updateAnchorPosition() {
     this.updateRotateAnchor();
     this.updateZoomAnchors();
+  }
+
+  computeSnapOffset(deltaMatrix) {
+    const points = this.worldCoverShape
+      .getAnchors()
+      .map((p) => deltaMatrix.apply(p));
+    let bestOffset = null;
+    let bestDist = Number.POSITIVE_INFINITY;
+    points.forEach((p) => {
+      const nearestPoint = this.world.grid.getNearestPoint(p);
+      // 计算从当前点到最近网格点的偏移量
+      const dx = nearestPoint.x - p.x;
+      const dy = nearestPoint.y - p.y;
+      // 使用曼哈顿距离来选择最佳对齐点（适合网格对齐场景）
+      const dist = Math.abs(dx) + Math.abs(dy);
+      if (dist < bestDist && dist < this.world.grid.snapTolerance) {
+        bestDist = dist;
+        bestOffset = { dx, dy };
+      }
+    });
+    return bestOffset || { dx: 0, dy: 0 };
   }
 }

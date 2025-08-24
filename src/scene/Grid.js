@@ -3,14 +3,16 @@ class Grid {
   constructor(world) {
     this.world = world;
     this.gridSize = 50;
-    this.snapTolerance = 5;
+    this.snapTolerance = 7;
   }
 
   getNearestPoint(point) {
     const gridSize = this.gridSize;
+    const x = Math.round(point.x / gridSize) * gridSize;
+    const y = Math.round(point.y / gridSize) * gridSize;
     return {
-      x: Math.round(point.x / gridSize) * gridSize,
-      y: Math.round(point.y / gridSize) * gridSize,
+      x,
+      y,
     };
   }
 

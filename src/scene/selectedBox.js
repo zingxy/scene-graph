@@ -5,7 +5,7 @@ class SelectBox extends Rect {
   constructor(world) {
     super(0, 0);
     this.world = world;
-    this.transformer = new Transformer();
+    this.transformer = new Transformer(world);
     this.bindEvents();
   }
   bindEvents() {

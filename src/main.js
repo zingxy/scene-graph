@@ -13,7 +13,7 @@ const ticker = new Ticker(60);
 
 Array.from({ length: 10 }).forEach((_, i) => {
   const smallCircle = Math.random() < 0.5 ? new Circle(50) : new Rect(100, 150);
-  smallCircle.rotation = Math.random() * 2 * Math.PI;
+  // smallCircle.rotation = Math.random() * 2 * Math.PI;
   smallCircle.fill = getRandomColor();
   smallCircle.x = Math.random() * canvas.width;
   smallCircle.y = Math.random() * canvas.height;
