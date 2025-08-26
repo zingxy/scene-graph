@@ -2,8 +2,8 @@
 class Grid {
   constructor(world) {
     this.world = world;
-    this.gridSize = 50;
-    this.snapTolerance = 7;
+    this.gridSize = 1;
+    this.snapTolerance = 1;
   }
 
   getNearestPoint(point) {
@@ -32,7 +32,8 @@ class Grid {
   renderGrid(ctx) {
     const { minX, minY, maxX, maxY } = this.world.camera.getWorldBounds();
     ctx.strokeStyle = 'rgba(0, 0, 0, 0.1)';
-    ctx.lineWidth = 1;
+    const zoom = this.world.camera.getZoomLevel();
+    ctx.lineWidth = 1 / zoom;
     {
       let start = minX - (minX % this.gridSize);
       let end = maxX + (this.gridSize - (maxX % this.gridSize));

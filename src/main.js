@@ -12,7 +12,7 @@ const world = new SceneGraph(canvas);
 const ticker = new Ticker(60);
 
 Array.from({ length: 10 }).forEach((_, i) => {
-  const smallCircle = Math.random() < 0.5 ? new Circle(50) : new Rect(100, 150);
+  const smallCircle = Math.random() < 0.5 ? new Circle(50) : new Rect(10, 15);
   // smallCircle.rotation = Math.random() * 2 * Math.PI;
   smallCircle.fill = getRandomColor();
   smallCircle.x = Math.random() * canvas.width;

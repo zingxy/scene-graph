@@ -27,6 +27,9 @@ export class Camera extends Container {
     this.world.forceupdate = true;
     super.markDirty();
   }
+  getZoomLevel() {
+    return this.transformMatrix.a; // Assuming uniform scaling
+  }
   getWorldBounds() {
     return new Bound({
       minX: 0,
@@ -35,7 +38,7 @@ export class Camera extends Container {
       maxY: this.world.canvas.height,
     }).applyMatrix(this.transformMatrix.invert());
   }
-  bindEvents() {
+  bindEvents = () => {
     const canvas = this.world.canvas;
     let isDragging = false;
     let dragStart = { x: 0, y: 0 };
@@ -94,10 +97,11 @@ export class Camera extends Container {
 
         const ctm = this.transformMatrix;
         this.transformMatrix = T2.append(S).append(T).append(ctm);
+        this.emit('camera:changed', { zoom: this.getZoomLevel() });
       },
       { passive: false }
     );
-  }
+  };
 
   getRenderCandidateSet() {
     // if (this.cacheCandidateSet) {
